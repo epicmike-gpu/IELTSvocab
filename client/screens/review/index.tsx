@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Speech from 'expo-speech';
+import { useFocusEffect } from 'expo-router';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -92,18 +93,19 @@ export default function ReviewScreen() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${BASE_URL}/api/v1/review`);
-        const data = await res.json();
-        if (!cancelled) setWords(data.words);
-      } catch {}
-      if (!cancelled) setLoading(false);
-    })();
-    return () => { cancelled = true; };
+  const fetchReview = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${BASE_URL}/api/v1/review`);
+      const data = await res.json();
+      setWords(data.words);
+    } catch {}
+    setLoading(false);
   }, []);
+
+  useFocusEffect(useCallback(() => {
+    fetchReview();
+  }, [fetchReview]));
 
   const handleKnown = async (id: number) => {
     try {

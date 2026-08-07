@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,18 +50,19 @@ export default function StatsScreen() {
   const [loading, setLoading] = useState(true);
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${BASE_URL}/api/v1/stats`);
-        const data = await res.json();
-        if (!cancelled) setStats(data);
-      } catch {}
-      if (!cancelled) setLoading(false);
-    })();
-    return () => { cancelled = true; };
+  const fetchStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${BASE_URL}/api/v1/stats`);
+      const data = await res.json();
+      setStats(data);
+    } catch {}
+    setLoading(false);
   }, []);
+
+  useFocusEffect(useCallback(() => {
+    fetchStats();
+  }, [fetchStats]));
 
   if (loading) {
     return (
