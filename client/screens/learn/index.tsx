@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
+import * as Speech from 'expo-speech';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
@@ -175,6 +176,17 @@ function WordCard({
             <Text style={styles.tapHint}>点击翻转查看释义</Text>
           </View>
 
+          {/* Speaker button - positioned above flip overlay */}
+          {isTop && !isFlipped && (
+            <Pressable
+              onPress={() => Speech.speak(word.word, { language: 'en-GB', rate: 0.85 })}
+              style={styles.speakerBtnAbsolute}
+            >
+              <FontAwesome6 name="volume-high" size={16} color="#6C63FF" />
+              <Text style={styles.speakerText}>发音</Text>
+            </Pressable>
+          )}
+
           {/* Swipe overlays */}
           <Animated.View style={[styles.rightOverlay, rightOverlayStyle]}>
             <View style={styles.overlayCircle}>
@@ -196,6 +208,13 @@ function WordCard({
           <View style={styles.backContent}>
             <Text style={styles.backWord}>{word.word}</Text>
             <Text style={styles.backPhonetic}>{word.phonetic}</Text>
+            <Pressable
+              onPress={() => Speech.speak(word.word, { language: 'en-GB', rate: 0.85 })}
+              style={styles.speakerBtn}
+            >
+              <FontAwesome6 name="volume-high" size={16} color="#6C63FF" />
+              <Text style={styles.speakerText}>发音</Text>
+            </Pressable>
             <View style={styles.divider} />
             <Text style={styles.backPos}>{word.pos}</Text>
             <Text style={styles.backMeaning}>{word.meaning}</Text>
@@ -323,7 +342,7 @@ export default function LearnScreen() {
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>
       <Screen safeAreaEdges={['left', 'right', 'bottom']} backgroundColor="#F0F0F3">
-        <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+        <View style={[styles.container, { paddingTop: insets.top + 4 }]}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>雅思词汇</Text>
@@ -504,6 +523,34 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#636E72',
     marginTop: 8,
+  },
+  speakerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(108,99,255,0.08)',
+    borderRadius: 9999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginTop: 12,
+    gap: 6,
+  },
+  speakerBtnAbsolute: {
+    position: 'absolute',
+    top: '50%',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(108,99,255,0.10)',
+    borderRadius: 9999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 6,
+    zIndex: 20,
+  },
+  speakerText: {
+    fontSize: 13,
+    color: '#6C63FF',
+    fontWeight: '600',
   },
   posText: {
     fontSize: 14,

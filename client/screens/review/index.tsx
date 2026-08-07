@@ -7,6 +7,7 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
+import * as Speech from 'expo-speech';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -62,6 +63,13 @@ function ReviewItem({
             <Text style={styles.detailPos}>{item.pos}</Text>
             <Text style={styles.detailMeaning}>{item.meaning}</Text>
           </View>
+          <Pressable
+            onPress={() => Speech.speak(item.word, { language: 'en-GB', rate: 0.85 })}
+            style={styles.speakerBtn}
+          >
+            <FontAwesome6 name="volume-high" size={14} color="#6C63FF" />
+            <Text style={styles.speakerText}>听发音</Text>
+          </Pressable>
           <View style={styles.exampleBox}>
             <Text style={styles.exampleText}>{item.example}</Text>
             <Text style={styles.exampleCnText}>{item.exampleCn}</Text>
@@ -260,6 +268,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#2D3436',
+  },
+  speakerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(108,99,255,0.08)',
+    borderRadius: 9999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    gap: 5,
+  },
+  speakerText: {
+    fontSize: 12,
+    color: '#6C63FF',
+    fontWeight: '600',
   },
   exampleBox: {
     backgroundColor: '#E8E8EB',
