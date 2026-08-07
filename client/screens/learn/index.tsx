@@ -25,7 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 64;
-const CARD_HEIGHT = SCREEN_HEIGHT * 0.52;
+const CARD_HEIGHT = SCREEN_HEIGHT * 0.50;
 const SWIPE_THRESHOLD = 120;
 
 interface Word {
@@ -53,6 +53,10 @@ const difficultyColor = (d: number) => {
   return '#FF6584';
 };
 
+function speakWord(word: string) {
+  Speech.speak(word, { language: 'en-GB', rate: 0.85 });
+}
+
 function WordCard({
   word,
   onSwipeLeft,
@@ -76,16 +80,6 @@ function WordCard({
     flipProgress.value = 0;
   }, [word.id]);
 
-  const handleSwipeLeft = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    runOnJS(onSwipeLeft)();
-  }, [onSwipeLeft]);
-
-  const handleSwipeRight = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    runOnJS(onSwipeRight)();
-  }, [onSwipeRight]);
-
   const panGesture = Gesture.Pan()
     .enabled(isTop && !isFlipped)
     .onUpdate((e) => {
@@ -94,13 +88,15 @@ function WordCard({
     })
     .onEnd((e) => {
       if (e.translationX > SWIPE_THRESHOLD) {
-        translateX.value = withTiming(SCREEN_WIDTH, { duration: 300 });
-        translateY.value = withTiming(50, { duration: 300 });
-        setTimeout(() => handleSwipeRight(), 300);
+        translateX.value = withTiming(SCREEN_WIDTH, { duration: 280 }, (finished) => {
+          if (finished) runOnJS(onSwipeRight)();
+        });
+        translateY.value = withTiming(40, { duration: 280 });
       } else if (e.translationX < -SWIPE_THRESHOLD) {
-        translateX.value = withTiming(-SCREEN_WIDTH, { duration: 300 });
-        translateY.value = withTiming(50, { duration: 300 });
-        setTimeout(() => handleSwipeLeft(), 300);
+        translateX.value = withTiming(-SCREEN_WIDTH, { duration: 280 }, (finished) => {
+          if (finished) runOnJS(onSwipeLeft)();
+        });
+        translateY.value = withTiming(40, { duration: 280 });
       } else {
         translateX.value = withSpring(0);
         translateY.value = withSpring(0);
@@ -173,29 +169,27 @@ function WordCard({
             <Text style={styles.wordText}>{word.word}</Text>
             <Text style={styles.phoneticText}>{word.phonetic}</Text>
             <Text style={styles.posText}>{word.pos}</Text>
-            <Text style={styles.tapHint}>点击翻转查看释义</Text>
+            {isTop && (
+              <Pressable
+                onPress={() => speakWord(word.word)}
+                style={styles.speakerBtn}
+              >
+                <FontAwesome6 name="volume-high" size={15} color="#6C63FF" />
+                <Text style={styles.speakerText}>听发音</Text>
+              </Pressable>
+            )}
+            <Text style={styles.tapHint}>点击卡片翻转查看释义</Text>
           </View>
 
-          {/* Speaker button - positioned above flip overlay */}
-          {isTop && !isFlipped && (
-            <Pressable
-              onPress={() => Speech.speak(word.word, { language: 'en-GB', rate: 0.85 })}
-              style={styles.speakerBtnAbsolute}
-            >
-              <FontAwesome6 name="volume-high" size={16} color="#6C63FF" />
-              <Text style={styles.speakerText}>发音</Text>
-            </Pressable>
-          )}
-
           {/* Swipe overlays */}
-          <Animated.View style={[styles.rightOverlay, rightOverlayStyle]}>
+          <Animated.View style={[styles.swipeOverlay, rightOverlayStyle]}>
             <View style={styles.overlayCircle}>
               <FontAwesome6 name="check" size={32} color="#00B894" />
             </View>
             <Text style={[styles.overlayText, { color: '#00B894' }]}>认识</Text>
           </Animated.View>
 
-          <Animated.View style={[styles.leftOverlay, leftOverlayStyle]}>
+          <Animated.View style={[styles.swipeOverlay, leftOverlayStyle]}>
             <View style={styles.overlayCircle}>
               <FontAwesome6 name="xmark" size={32} color="#FF6B6B" />
             </View>
@@ -209,11 +203,11 @@ function WordCard({
             <Text style={styles.backWord}>{word.word}</Text>
             <Text style={styles.backPhonetic}>{word.phonetic}</Text>
             <Pressable
-              onPress={() => Speech.speak(word.word, { language: 'en-GB', rate: 0.85 })}
+              onPress={() => speakWord(word.word)}
               style={styles.speakerBtn}
             >
-              <FontAwesome6 name="volume-high" size={16} color="#6C63FF" />
-              <Text style={styles.speakerText}>发音</Text>
+              <FontAwesome6 name="volume-high" size={15} color="#6C63FF" />
+              <Text style={styles.speakerText}>听发音</Text>
             </Pressable>
             <View style={styles.divider} />
             <Text style={styles.backPos}>{word.pos}</Text>
@@ -225,12 +219,11 @@ function WordCard({
           </View>
         </Animated.View>
 
-        {/* Tap to flip overlay */}
-        {isTop && (
+        {/* Tap to flip overlay - only when not flipped and is top card */}
+        {isTop && !isFlipped && (
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={handleFlip}
-            hitSlop={0}
           />
         )}
       </Animated.View>
@@ -273,23 +266,19 @@ export default function LearnScreen() {
     }
   }, [currentIndex, words.length]);
 
-  const handleKnown = useCallback(async () => {
+  const handleKnown = useCallback(() => {
     const word = words[currentIndex];
     if (!word) return;
     setSessionCount((c) => c + 1);
-    try {
-      await fetch(`${BASE_URL}/api/v1/words/${word.id}/known`, { method: 'POST' });
-    } catch {}
+    fetch(`${BASE_URL}/api/v1/words/${word.id}/known`, { method: 'POST' }).catch(() => { /* ignore */ });
     handleNext();
   }, [words, currentIndex, handleNext]);
 
-  const handleUnknown = useCallback(async () => {
+  const handleUnknown = useCallback(() => {
     const word = words[currentIndex];
     if (!word) return;
     setSessionCount((c) => c + 1);
-    try {
-      await fetch(`${BASE_URL}/api/v1/words/${word.id}/unknown`, { method: 'POST' });
-    } catch {}
+    fetch(`${BASE_URL}/api/v1/words/${word.id}/unknown`, { method: 'POST' }).catch(() => { /* ignore */ });
     handleNext();
   }, [words, currentIndex, handleNext]);
 
@@ -433,7 +422,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 28,
     width: '100%',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   headerTitle: {
     fontSize: 28,
@@ -527,25 +516,12 @@ const styles = StyleSheet.create({
   speakerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(108,99,255,0.08)',
-    borderRadius: 9999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginTop: 12,
-    gap: 6,
-  },
-  speakerBtnAbsolute: {
-    position: 'absolute',
-    top: '50%',
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: 'rgba(108,99,255,0.10)',
     borderRadius: 9999,
     paddingHorizontal: 14,
     paddingVertical: 8,
+    marginTop: 16,
     gap: 6,
-    zIndex: 20,
   },
   speakerText: {
     fontSize: 13,
@@ -565,21 +541,11 @@ const styles = StyleSheet.create({
   tapHint: {
     fontSize: 13,
     color: '#B2BEC3',
-    marginTop: 24,
+    marginTop: 20,
   },
 
   // Swipe overlays
-  rightOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 24,
-  },
-  leftOverlay: {
+  swipeOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -632,7 +598,7 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: '#6C63FF',
     borderRadius: 1,
-    marginVertical: 20,
+    marginVertical: 16,
   },
   backPos: {
     fontSize: 14,
@@ -645,7 +611,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2D3436',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   exampleBox: {
     backgroundColor: '#E8E8EB',
@@ -673,7 +639,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 20,
+    paddingBottom: 16,
     gap: 24,
   },
   actionBtnWrap: {},
@@ -691,30 +657,31 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   hintText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#B2BEC3',
-    paddingBottom: 8,
+    textAlign: 'center',
+    paddingBottom: 12,
   },
 
-  // Done state
+  // Done screen
   doneCard: {
+    alignItems: 'center',
     backgroundColor: '#F0F0F3',
     borderRadius: 24,
-    padding: 40,
-    alignItems: 'center',
-    marginHorizontal: 32,
+    paddingVertical: 40,
+    paddingHorizontal: 32,
     shadowColor: '#D1D9E6',
     shadowOffset: { width: 6, height: 6 },
     shadowOpacity: 0.7,
     shadowRadius: 8,
     elevation: 6,
-    width: CARD_WIDTH,
+    marginHorizontal: 32,
   },
   doneIconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(108,99,255,0.10)',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(108,99,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -730,16 +697,14 @@ const styles = StyleSheet.create({
     color: '#636E72',
     marginBottom: 28,
   },
-  doneBtnWrap: {},
+  doneBtnWrap: { borderRadius: 9999, overflow: 'hidden' },
   doneBtn: {
-    borderRadius: 9999,
-    paddingVertical: 16,
-    paddingHorizontal: 40,
-    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
   },
   doneBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#FFF',
   },
 });
