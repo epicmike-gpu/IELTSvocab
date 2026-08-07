@@ -1,5 +1,11 @@
 import express from "express";
 import cors from "cors";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -33,6 +39,22 @@ interface WordList {
   color: string;
   words: Word[];
 }
+
+// ── Load Word Lists from Files ───────────────────────────────────
+
+function loadWordListFromFile(filePath: string): WordList | null {
+  try {
+    const data = fs.readFileSync(filePath, 'utf-8');
+    return JSON.parse(data);
+  } catch (e) {
+    console.error(`Failed to load word list from ${filePath}:`, e);
+    return null;
+  }
+}
+
+// Load IELTS 8000 word lists
+const ieltsSequential = loadWordListFromFile(path.join(__dirname, '../data/ielts_sequential.json'));
+const ieltsRandom = loadWordListFromFile(path.join(__dirname, '../data/ielts_random.json'));
 
 // ── Word Lists Data ──────────────────────────────────────────────
 
@@ -215,6 +237,14 @@ const WORD_LISTS: WordList[] = [
     ],
   },
 ];
+
+// Add IELTS 8000 word lists if loaded
+if (ieltsSequential) {
+  WORD_LISTS.push(ieltsSequential);
+}
+if (ieltsRandom) {
+  WORD_LISTS.push(ieltsRandom);
+}
 
 // ── In-memory state (per list) ───────────────────────────────────
 
