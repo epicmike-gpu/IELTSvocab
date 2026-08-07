@@ -1,0 +1,698 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  Dimensions,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+} from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+  interpolate,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome6 } from '@expo/vector-icons';
+import { Screen } from '@/components/Screen';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const CARD_WIDTH = SCREEN_WIDTH - 64;
+const CARD_HEIGHT = SCREEN_HEIGHT * 0.52;
+const SWIPE_THRESHOLD = 120;
+
+interface Word {
+  id: number;
+  word: string;
+  phonetic: string;
+  pos: string;
+  meaning: string;
+  example: string;
+  exampleCn: string;
+  difficulty: 1 | 2 | 3;
+}
+
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+
+const difficultyLabel = (d: number) => {
+  if (d === 1) return '基础';
+  if (d === 2) return '进阶';
+  return '高阶';
+};
+
+const difficultyColor = (d: number) => {
+  if (d === 1) return '#00B894';
+  if (d === 2) return '#6C63FF';
+  return '#FF6584';
+};
+
+function WordCard({
+  word,
+  onSwipeLeft,
+  onSwipeRight,
+  isTop,
+}: {
+  word: Word;
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
+  isTop: boolean;
+}) {
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const flipProgress = useSharedValue(0);
+
+  useEffect(() => {
+    translateX.value = 0;
+    translateY.value = 0;
+    setIsFlipped(false);
+    flipProgress.value = 0;
+  }, [word.id]);
+
+  const handleSwipeLeft = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    runOnJS(onSwipeLeft)();
+  }, [onSwipeLeft]);
+
+  const handleSwipeRight = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    runOnJS(onSwipeRight)();
+  }, [onSwipeRight]);
+
+  const panGesture = Gesture.Pan()
+    .enabled(isTop && !isFlipped)
+    .onUpdate((e) => {
+      translateX.value = e.translationX;
+      translateY.value = e.translationY * 0.3;
+    })
+    .onEnd((e) => {
+      if (e.translationX > SWIPE_THRESHOLD) {
+        translateX.value = withTiming(SCREEN_WIDTH, { duration: 300 });
+        translateY.value = withTiming(50, { duration: 300 });
+        setTimeout(() => handleSwipeRight(), 300);
+      } else if (e.translationX < -SWIPE_THRESHOLD) {
+        translateX.value = withTiming(-SCREEN_WIDTH, { duration: 300 });
+        translateY.value = withTiming(50, { duration: 300 });
+        setTimeout(() => handleSwipeLeft(), 300);
+      } else {
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+    });
+
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { rotate: `${translateX.value * 0.08}deg` },
+    ],
+  }));
+
+  const rightOverlayStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0, 1], 'clamp'),
+    transform: [{ scale: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0.8, 1], 'clamp') }],
+  }));
+
+  const leftOverlayStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0], 'clamp'),
+    transform: [{ scale: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0.8], 'clamp') }],
+  }));
+
+  const backCardStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: interpolate(Math.abs(translateX.value), [0, SWIPE_THRESHOLD], [1, 0.95], 'clamp') },
+    ],
+    opacity: interpolate(Math.abs(translateX.value), [0, SWIPE_THRESHOLD], [0, 0.6], 'clamp'),
+  }));
+
+  const frontOpacity = useAnimatedStyle(() => ({
+    opacity: 1 - flipProgress.value,
+  }));
+
+  const backOpacity = useAnimatedStyle(() => ({
+    opacity: flipProgress.value,
+  }));
+
+  const handleFlip = () => {
+    const newVal = isFlipped ? 0 : 1;
+    flipProgress.value = withTiming(newVal, { duration: 300 });
+    setIsFlipped(!isFlipped);
+  };
+
+  return (
+    <GestureDetector gesture={panGesture}>
+      <Animated.View
+        style={[
+          styles.card,
+          isTop ? cardStyle : backCardStyle,
+          { zIndex: isTop ? 10 : 1 },
+        ]}
+      >
+        {/* Front face */}
+        <Animated.View style={[styles.cardFace, frontOpacity]}>
+          <View style={styles.difficultyBadge}>
+            <View
+              style={[
+                styles.difficultyDot,
+                { backgroundColor: difficultyColor(word.difficulty) },
+              ]}
+            />
+            <Text style={[styles.difficultyText, { color: difficultyColor(word.difficulty) }]}>
+              {difficultyLabel(word.difficulty)}
+            </Text>
+          </View>
+
+          <View style={styles.cardContent}>
+            <Text style={styles.wordText}>{word.word}</Text>
+            <Text style={styles.phoneticText}>{word.phonetic}</Text>
+            <Text style={styles.posText}>{word.pos}</Text>
+            <Text style={styles.tapHint}>点击翻转查看释义</Text>
+          </View>
+
+          {/* Swipe overlays */}
+          <Animated.View style={[styles.rightOverlay, rightOverlayStyle]}>
+            <View style={styles.overlayCircle}>
+              <FontAwesome6 name="check" size={32} color="#00B894" />
+            </View>
+            <Text style={[styles.overlayText, { color: '#00B894' }]}>认识</Text>
+          </Animated.View>
+
+          <Animated.View style={[styles.leftOverlay, leftOverlayStyle]}>
+            <View style={styles.overlayCircle}>
+              <FontAwesome6 name="xmark" size={32} color="#FF6B6B" />
+            </View>
+            <Text style={[styles.overlayText, { color: '#FF6B6B' }]}>不认识</Text>
+          </Animated.View>
+        </Animated.View>
+
+        {/* Back face */}
+        <Animated.View style={[styles.cardFace, styles.cardBack, backOpacity]}>
+          <View style={styles.backContent}>
+            <Text style={styles.backWord}>{word.word}</Text>
+            <Text style={styles.backPhonetic}>{word.phonetic}</Text>
+            <View style={styles.divider} />
+            <Text style={styles.backPos}>{word.pos}</Text>
+            <Text style={styles.backMeaning}>{word.meaning}</Text>
+            <View style={styles.exampleBox}>
+              <Text style={styles.exampleText}>{word.example}</Text>
+              <Text style={styles.exampleCnText}>{word.exampleCn}</Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Tap to flip overlay */}
+        {isTop && (
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={handleFlip}
+            hitSlop={0}
+          />
+        )}
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+export default function LearnScreen() {
+  const [words, setWords] = useState<Word[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [allDone, setAllDone] = useState(false);
+  const [sessionCount, setSessionCount] = useState(0);
+  const insets = useSafeAreaInsets();
+
+  const fetchWords = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/words/batch?offset=0&limit=10`);
+      const data = await res.json();
+      setWords(data.words);
+      setCurrentIndex(0);
+      setAllDone(data.words.length === 0);
+    } catch {
+      setAllDone(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchWords();
+  }, [fetchWords]);
+
+  const handleNext = useCallback(() => {
+    if (currentIndex < words.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+    } else {
+      setAllDone(true);
+    }
+  }, [currentIndex, words.length]);
+
+  const handleKnown = useCallback(async () => {
+    const word = words[currentIndex];
+    if (!word) return;
+    setSessionCount((c) => c + 1);
+    try {
+      await fetch(`${BASE_URL}/api/v1/words/${word.id}/known`, { method: 'POST' });
+    } catch {}
+    handleNext();
+  }, [words, currentIndex, handleNext]);
+
+  const handleUnknown = useCallback(async () => {
+    const word = words[currentIndex];
+    if (!word) return;
+    setSessionCount((c) => c + 1);
+    try {
+      await fetch(`${BASE_URL}/api/v1/words/${word.id}/unknown`, { method: 'POST' });
+    } catch {}
+    handleNext();
+  }, [words, currentIndex, handleNext]);
+
+  const handleLoadMore = () => {
+    setAllDone(false);
+    fetchWords();
+  };
+
+  const visibleWords = words.slice(currentIndex, currentIndex + 2).reverse();
+
+  if (loading) {
+    return (
+      <Screen safeAreaEdges={['left', 'right', 'bottom']} backgroundColor="#F0F0F3">
+        <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
+          <ActivityIndicator size="large" color="#6C63FF" />
+          <Text style={styles.loadingText}>加载单词中...</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (allDone) {
+    return (
+      <Screen safeAreaEdges={['left', 'right', 'bottom']} backgroundColor="#F0F0F3">
+        <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.doneCard}>
+            <View style={styles.doneIconWrap}>
+              <FontAwesome6 name="trophy" size={48} color="#6C63FF" />
+            </View>
+            <Text style={styles.doneTitle}>本轮学习完成!</Text>
+            <Text style={styles.doneSubtitle}>
+              本轮已学习 {sessionCount} 个单词
+            </Text>
+            <Pressable onPress={handleLoadMore} style={styles.doneBtnWrap}>
+              <LinearGradient
+                colors={['#6C63FF', '#896BFF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.doneBtn}
+              >
+                <Text style={styles.doneBtnText}>继续学习</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  return (
+    <GestureHandlerRootView style={styles.gestureRoot}>
+      <Screen safeAreaEdges={['left', 'right', 'bottom']} backgroundColor="#F0F0F3">
+        <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>雅思词汇</Text>
+            <View style={styles.progressBadge}>
+              <Text style={styles.progressText}>
+                {currentIndex + 1} / {words.length}
+              </Text>
+            </View>
+          </View>
+
+          {/* Card Stack */}
+          <View style={styles.cardStack}>
+            {visibleWords.map((word, index) => (
+              <WordCard
+                key={`${word.id}-${currentIndex + index}`}
+                word={word}
+                onSwipeLeft={handleUnknown}
+                onSwipeRight={handleKnown}
+                isTop={index === visibleWords.length - 1}
+              />
+            ))}
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.actionRow}>
+            <Pressable
+              onPress={handleUnknown}
+              style={({ pressed }) => [
+                styles.actionBtnWrap,
+                pressed && styles.actionBtnPressed,
+              ]}
+            >
+              <LinearGradient
+                colors={['#FF6B6B', '#FF8E8E']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.actionBtn}
+              >
+                <FontAwesome6 name="xmark" size={28} color="#FFF" />
+              </LinearGradient>
+            </Pressable>
+
+            <Pressable
+              onPress={handleKnown}
+              style={({ pressed }) => [
+                styles.actionBtnWrap,
+                pressed && styles.actionBtnPressed,
+              ]}
+            >
+              <LinearGradient
+                colors={['#00B894', '#2ED8A8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.actionBtn}
+              >
+                <FontAwesome6 name="check" size={28} color="#FFF" />
+              </LinearGradient>
+            </Pressable>
+          </View>
+
+          {/* Hint */}
+          <Text style={styles.hintText}>
+            左滑不认识 · 右滑认识 · 点击卡片翻转
+          </Text>
+        </View>
+      </Screen>
+    </GestureHandlerRootView>
+  );
+}
+
+const styles = StyleSheet.create({
+  gestureRoot: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: '#F0F0F3',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 15,
+    color: '#636E72',
+  },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    width: '100%',
+    marginBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#2D3436',
+  },
+  progressBadge: {
+    backgroundColor: 'rgba(108,99,255,0.10)',
+    borderRadius: 9999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  progressText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6C63FF',
+  },
+
+  // Card Stack
+  cardStack: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 32,
+  },
+  card: {
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    borderRadius: 24,
+    position: 'absolute',
+  },
+  cardFace: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24,
+    backgroundColor: '#F0F0F3',
+    shadowColor: '#D1D9E6',
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 0.7,
+    shadowRadius: 8,
+    elevation: 6,
+    overflow: 'hidden',
+  },
+  cardBack: {
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: -6, height: -6 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+  },
+
+  // Front face
+  difficultyBadge: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(108,99,255,0.08)',
+    borderRadius: 9999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  difficultyDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  difficultyText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cardContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  wordText: {
+    fontSize: 38,
+    fontWeight: '800',
+    color: '#2D3436',
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  phoneticText: {
+    fontSize: 18,
+    color: '#636E72',
+    marginTop: 8,
+  },
+  posText: {
+    fontSize: 14,
+    color: '#6C63FF',
+    fontWeight: '600',
+    marginTop: 12,
+    backgroundColor: 'rgba(108,99,255,0.08)',
+    borderRadius: 9999,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+  },
+  tapHint: {
+    fontSize: 13,
+    color: '#B2BEC3',
+    marginTop: 24,
+  },
+
+  // Swipe overlays
+  rightOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 24,
+  },
+  leftOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 24,
+  },
+  overlayCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  overlayText: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+
+  // Back face
+  backContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 28,
+    backgroundColor: '#F0F0F3',
+    borderRadius: 24,
+  },
+  backWord: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#2D3436',
+  },
+  backPhonetic: {
+    fontSize: 16,
+    color: '#636E72',
+    marginTop: 4,
+  },
+  divider: {
+    width: 40,
+    height: 2,
+    backgroundColor: '#6C63FF',
+    borderRadius: 1,
+    marginVertical: 20,
+  },
+  backPos: {
+    fontSize: 14,
+    color: '#6C63FF',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  backMeaning: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#2D3436',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  exampleBox: {
+    backgroundColor: '#E8E8EB',
+    borderRadius: 16,
+    padding: 16,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+  },
+  exampleText: {
+    fontSize: 14,
+    color: '#2D3436',
+    fontStyle: 'italic',
+    lineHeight: 22,
+  },
+  exampleCnText: {
+    fontSize: 13,
+    color: '#636E72',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+
+  // Action buttons
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 20,
+    gap: 24,
+  },
+  actionBtnWrap: {},
+  actionBtnPressed: { opacity: 0.85, transform: [{ scale: 0.95 }] },
+  actionBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#B2BEC3',
+    paddingBottom: 8,
+  },
+
+  // Done state
+  doneCard: {
+    backgroundColor: '#F0F0F3',
+    borderRadius: 24,
+    padding: 40,
+    alignItems: 'center',
+    marginHorizontal: 32,
+    shadowColor: '#D1D9E6',
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 0.7,
+    shadowRadius: 8,
+    elevation: 6,
+    width: CARD_WIDTH,
+  },
+  doneIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(108,99,255,0.10)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  doneTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#2D3436',
+    marginBottom: 8,
+  },
+  doneSubtitle: {
+    fontSize: 15,
+    color: '#636E72',
+    marginBottom: 28,
+  },
+  doneBtnWrap: {},
+  doneBtn: {
+    borderRadius: 9999,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    alignItems: 'center',
+  },
+  doneBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+});

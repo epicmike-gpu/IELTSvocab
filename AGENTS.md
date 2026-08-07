@@ -259,3 +259,30 @@ import { Screen } from '../../../components/Screen';
 ## 本地开发
 
 `coze dev`：用来首次启动前后端服务，也可以用来重启前后端服务（该命令会先尝试杀掉占用端口的进程，再启动服务）
+
+## 项目概述
+
+雅思单词学习 App，类似探探的卡片式交互。用户通过左右滑动卡片来标记"认识"或"不认识"，不认识的单词自动加入复习本。
+
+## 路由结构
+
+采用 Tabs 导航（3 个 Tab）：
+- `(tabs)/index.tsx` → `screens/learn/index.tsx` — 学习页（卡片滑动）
+- `(tabs)/review.tsx` → `screens/review/index.tsx` — 复习本
+- `(tabs)/stats.tsx` → `screens/stats/index.tsx` — 学习统计
+
+## 后端 API
+
+所有 API 在 `server/src/index.ts`，前缀 `/api/v1`：
+- `GET /api/v1/words/batch?offset=0&limit=10` — 获取待学习单词批次
+- `GET /api/v1/words` — 获取全部单词
+- `POST /api/v1/words/:id/known` — 标记为认识
+- `POST /api/v1/words/:id/unknown` — 标记为不认识（加入复习本）
+- `GET /api/v1/review` — 获取复习本单词
+- `POST /api/v1/review/:id/known` — 复习中标记为已掌握
+- `DELETE /api/v1/review/:id` — 从复习本移除
+- `GET /api/v1/stats` — 获取学习统计
+
+## 设计风格
+
+柔和卡片风（新拟态），主色 #6C63FF，辅色 #FF6584，背景 #F0F0F3。详见 `DESIGN.md`。
