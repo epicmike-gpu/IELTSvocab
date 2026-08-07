@@ -12,6 +12,7 @@ import { useFocusEffect } from 'expo-router';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useWordList } from '@/contexts/WordListContext';
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
 
@@ -88,6 +89,7 @@ function ReviewItem({
 }
 
 export default function ReviewScreen() {
+  const { currentListId, currentList } = useWordList();
   const [words, setWords] = useState<ReviewWord[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -96,12 +98,12 @@ export default function ReviewScreen() {
   const fetchReview = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${BASE_URL}/api/v1/review`);
+      const res = await fetch(`${BASE_URL}/api/v1/review?listId=${currentListId}`);
       const data = await res.json();
       setWords(data.words);
     } catch {}
     setLoading(false);
-  }, []);
+  }, [currentListId]);
 
   useFocusEffect(useCallback(() => {
     fetchReview();
@@ -109,7 +111,11 @@ export default function ReviewScreen() {
 
   const handleKnown = async (id: number) => {
     try {
-      await fetch(`${BASE_URL}/api/v1/review/${id}/known`, { method: 'POST' });
+      await fetch(`${BASE_URL}/api/v1/review/${id}/known`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listId: currentListId }),
+      });
       setWords((prev) => prev.filter((w) => w.id !== id));
     } catch {}
   };
@@ -141,7 +147,9 @@ export default function ReviewScreen() {
           <Text style={styles.headerTitle}>复习本</Text>
           <View style={styles.countBadge}>
             <FontAwesome6 name="book" size={12} color="#FF6584" />
-            <Text style={styles.countText}>{words.length} 个单词</Text>
+            <Text style={styles.countText}>
+              {currentList?.name || '全部'} · {words.length} 个单词
+            </Text>
           </View>
         </View>
 

@@ -1,13 +1,13 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
+import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
+import { useWordList, WordListInfo } from '@/contexts/WordListContext';
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
 
-interface Stats {
+interface StatsData {
   todayLearned: number;
   todayKnown: number;
   todayUnknown: number;
@@ -18,353 +18,227 @@ interface Stats {
   last7Days: { date: string; learned: number }[];
 }
 
-function StatCard({
-  icon,
-  iconColor,
-  iconBg,
-  label,
-  value,
-  subtitle,
-}: {
-  icon: string;
-  iconColor: string;
-  iconBg: string;
-  label: string;
-  value: string | number;
-  subtitle?: string;
-}) {
-  return (
-    <View style={styles.statCard}>
-      <View style={[styles.statIconWrap, { backgroundColor: iconBg }]}>
-        <FontAwesome6 name={icon as any} size={20} color={iconColor} />
-      </View>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-      {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
-    </View>
-  );
-}
-
 export default function StatsScreen() {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const { currentListId, lists, setListId, refreshLists } = useWordList();
+  const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const insets = useSafeAreaInsets();
 
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${BASE_URL}/api/v1/stats`);
+      const res = await fetch(`${BASE_URL}/api/v1/stats?listId=${currentListId}`);
       const data = await res.json();
       setStats(data);
-    } catch {}
-    setLoading(false);
-  }, []);
+    } catch (e) {
+      console.error('Failed to fetch stats:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentListId]);
 
   useFocusEffect(useCallback(() => {
     fetchStats();
-  }, [fetchStats]));
+    refreshLists();
+  }, [fetchStats, refreshLists]));
 
-  if (loading) {
-    return (
-      <Screen safeAreaEdges={['left', 'right', 'bottom']} backgroundColor="#F0F0F3">
-        <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
-          <ActivityIndicator size="large" color="#6C63FF" />
-        </View>
-      </Screen>
-    );
-  }
+  const handleSelectList = (listId: string) => {
+    setListId(listId);
+  };
 
-  if (!stats) return null;
-
-  const progressPercent = stats.totalWords > 0
-    ? Math.round((stats.totalKnown / stats.totalWords) * 100)
+  const progress = stats ? (stats.totalWords > 0 ? Math.round(((stats.totalKnown + stats.totalReview) / stats.totalWords) * 100) : 0) : 0;
+  const accuracy = stats && (stats.totalKnown + stats.totalReview) > 0
+    ? Math.round((stats.totalKnown / (stats.totalKnown + stats.totalReview)) * 100)
     : 0;
 
-  const maxLearned = Math.max(...stats.last7Days.map((d) => d.learned), 1);
-
   return (
-    <Screen safeAreaEdges={['left', 'right', 'bottom']} backgroundColor="#F0F0F3">
+    <Screen>
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 12 }]}
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>学习统计</Text>
-          {stats.streak > 0 && (
-            <View style={styles.streakBadge}>
-              <FontAwesome6 name="fire" size={14} color="#FF6584" />
-              <Text style={styles.streakText}>连续 {stats.streak} 天</Text>
-            </View>
-          )}
+        <View className="px-6 pt-2 pb-4">
+          <Text className="text-3xl font-bold text-foreground">学习统计</Text>
+          <Text className="text-sm text-muted mt-1">选择词表，查看学习进度</Text>
         </View>
 
-        {/* Progress Overview */}
-        <View style={styles.progressCard}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>总体进度</Text>
-            <Text style={styles.progressPercent}>{progressPercent}%</Text>
-          </View>
-          <View style={styles.progressBarBg}>
-            <View
-              style={[
-                styles.progressBarFill,
-                { width: `${Math.max(progressPercent, 2)}%` },
-              ]}
-            />
-          </View>
-          <View style={styles.progressStats}>
-            <Text style={styles.progressDetail}>
-              已掌握 {stats.totalKnown} / {stats.totalWords} 词
-            </Text>
-            <Text style={styles.progressDetail}>
-              待复习 {stats.totalReview} 词
-            </Text>
-          </View>
-        </View>
-
-        {/* Today Stats */}
-        <Text style={styles.sectionTitle}>今日学习</Text>
-        <View style={styles.statsGrid}>
-          <StatCard
-            icon="book-open"
-            iconColor="#6C63FF"
-            iconBg="rgba(108,99,255,0.12)"
-            label="已学习"
-            value={stats.todayLearned}
-          />
-          <StatCard
-            icon="check"
-            iconColor="#00B894"
-            iconBg="rgba(0,184,148,0.12)"
-            label="认识"
-            value={stats.todayKnown}
-          />
-          <StatCard
-            icon="xmark"
-            iconColor="#FF6584"
-            iconBg="rgba(255,101,132,0.12)"
-            label="不认识"
-            value={stats.todayUnknown}
-          />
-          <StatCard
-            icon="fire"
-            iconColor="#FDCB6E"
-            iconBg="rgba(253,203,110,0.15)"
-            label="连续天数"
-            value={stats.streak}
-            subtitle="天"
-          />
-        </View>
-
-        {/* 7-Day Chart */}
-        <Text style={styles.sectionTitle}>近 7 天学习量</Text>
-        <View style={styles.chartCard}>
-          <View style={styles.chartRow}>
-            {stats.last7Days.map((day, index) => {
-              const barHeight = (day.learned / maxLearned) * 100;
-              return (
-                <View key={index} style={styles.chartBarWrap}>
-                  <Text style={styles.chartValue}>
-                    {day.learned > 0 ? day.learned : ''}
-                  </Text>
-                  <View
-                    style={[
-                      styles.chartBar,
-                      {
-                        height: Math.max(barHeight, 4),
-                        backgroundColor:
-                          day.learned > 0 ? '#6C63FF' : '#E8E8EB',
-                      },
-                    ]}
-                  />
-                  <Text style={styles.chartLabel}>{day.date}</Text>
+        {/* Word List Selector */}
+        <View className="px-6 mb-6">
+          <Text className="text-sm font-semibold text-muted mb-3">选择词表</Text>
+          <View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3">
+              {lists.map((list) => (
+                <ListCard
+                  key={list.id}
+                  list={list}
+                  isSelected={list.id === currentListId}
+                  onSelect={() => handleSelectList(list.id)}
+                />
+              ))}
+              {lists.length === 0 && (
+                <View className="px-4 py-8 items-center">
+                  <ActivityIndicator color="#6C63FF" />
                 </View>
-              );
-            })}
+              )}
+            </ScrollView>
           </View>
         </View>
+
+        {loading ? (
+          <View className="flex-1 items-center justify-center py-20">
+            <ActivityIndicator size="large" color="#6C63FF" />
+          </View>
+        ) : stats ? (
+          <>
+            {/* Today Stats */}
+            <View className="px-6 mb-6">
+              <Text className="text-sm font-semibold text-muted mb-3">今日学习</Text>
+              <View className="bg-card rounded-3xl p-5 border border-border">
+                <View className="flex-row justify-between items-center mb-4">
+                  <View>
+                    <Text className="text-4xl font-bold text-foreground">{stats.todayLearned}</Text>
+                    <Text className="text-sm text-muted mt-1">今日已学</Text>
+                  </View>
+                  <View className="w-16 h-16 rounded-full bg-accent/10 items-center justify-center">
+                    <FontAwesome6 name="fire" size={28} color="#6C63FF" />
+                  </View>
+                </View>
+                <View className="flex-row gap-4 pt-3 border-t border-border">
+                  <View className="flex-1 items-center">
+                    <Text className="text-xl font-bold text-primary">{stats.todayKnown}</Text>
+                    <Text className="text-xs text-muted mt-0.5">认识</Text>
+                  </View>
+                  <View className="w-px bg-border" />
+                  <View className="flex-1 items-center">
+                    <Text className="text-xl font-bold text-danger">{stats.todayUnknown}</Text>
+                    <Text className="text-xs text-muted mt-0.5">不认识</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Overall Progress */}
+            <View className="px-6 mb-6">
+              <Text className="text-sm font-semibold text-muted mb-3">总体进度</Text>
+              <View className="bg-card rounded-3xl p-5 border border-border">
+                <View className="flex-row justify-between items-center mb-4">
+                  <View>
+                    <Text className="text-4xl font-bold text-foreground">{progress}%</Text>
+                    <Text className="text-sm text-muted mt-1">
+                      {stats.totalKnown + stats.totalReview} / {stats.totalWords} 词
+                    </Text>
+                  </View>
+                  <View className="w-16 h-16 rounded-full bg-accent/10 items-center justify-center">
+                    <FontAwesome6 name="chart-line" size={28} color="#6C63FF" />
+                  </View>
+                </View>
+
+                {/* Progress Bar */}
+                <View className="h-3 bg-border rounded-full overflow-hidden mb-4">
+                  <View
+                    className="h-full bg-accent rounded-full"
+                    style={{ width: `${progress}%` }}
+                  />
+                </View>
+
+                <View className="flex-row gap-4 pt-3 border-t border-border">
+                  <View className="flex-1 items-center">
+                    <Text className="text-xl font-bold text-primary">{stats.totalKnown}</Text>
+                    <Text className="text-xs text-muted mt-0.5">已掌握</Text>
+                  </View>
+                  <View className="w-px bg-border" />
+                  <View className="flex-1 items-center">
+                    <Text className="text-xl font-bold text-warning">{stats.totalReview}</Text>
+                    <Text className="text-xs text-muted mt-0.5">待复习</Text>
+                  </View>
+                  <View className="w-px bg-border" />
+                  <View className="flex-1 items-center">
+                    <Text className="text-xl font-bold text-foreground">{accuracy}%</Text>
+                    <Text className="text-xs text-muted mt-0.5">正确率</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Streak */}
+            <View className="px-6 mb-6">
+              <Text className="text-sm font-semibold text-muted mb-3">连续学习</Text>
+              <View className="bg-card rounded-3xl p-5 border border-border flex-row items-center gap-4">
+                <View className="w-14 h-14 rounded-full bg-warning/10 items-center justify-center">
+                  <FontAwesome6 name="trophy" size={24} color="#F5A623" />
+                </View>
+                <View>
+                  <Text className="text-3xl font-bold text-foreground">{stats.streak}</Text>
+                  <Text className="text-sm text-muted mt-0.5">天连续学习</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 7-Day Chart */}
+            <View className="px-6 mb-6">
+              <Text className="text-sm font-semibold text-muted mb-3">近 7 天</Text>
+              <View className="bg-card rounded-3xl p-5 border border-border">
+                <View className="flex-row justify-between items-end h-32">
+                  {stats.last7Days.map((day, index) => {
+                    const maxLearned = Math.max(...stats.last7Days.map(d => d.learned), 1);
+                    const height = Math.max((day.learned / maxLearned) * 100, 4);
+                    return (
+                      <View key={index} className="flex-1 items-center gap-2">
+                        <Text className="text-xs font-medium text-foreground">{day.learned}</Text>
+                        <View
+                          className="w-6 bg-accent rounded-t-lg"
+                          style={{ height: `${height}%` }}
+                        />
+                        <Text className="text-xs text-muted">{day.date}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          </>
+        ) : null}
       </ScrollView>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F0F0F3',
-  },
-  scrollContent: {
-    paddingBottom: 120,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 28,
-    marginBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#2D3436',
-  },
-  streakBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,101,132,0.10)',
-    borderRadius: 9999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    gap: 6,
-  },
-  streakText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FF6584',
-  },
-
-  // Progress card
-  progressCard: {
-    marginHorizontal: 24,
-    backgroundColor: '#F0F0F3',
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: '#D1D9E6',
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 4,
-    marginBottom: 24,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  progressLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2D3436',
-  },
-  progressPercent: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#6C63FF',
-  },
-  progressBarBg: {
-    height: 10,
-    backgroundColor: '#E8E8EB',
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#6C63FF',
-    borderRadius: 5,
-  },
-  progressStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  progressDetail: {
-    fontSize: 13,
-    color: '#636E72',
-  },
-
-  // Section title
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2D3436',
-    paddingHorizontal: 28,
-    marginBottom: 12,
-    marginTop: 4,
-  },
-
-  // Stats grid
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  statCard: {
-    width: '47%',
-    marginHorizontal: '1.5%',
-    backgroundColor: '#F0F0F3',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#D1D9E6',
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  statIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#636E72',
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#2D3436',
-  },
-  statSubtitle: {
-    fontSize: 13,
-    color: '#B2BEC3',
-    marginTop: 2,
-  },
-
-  // Chart
-  chartCard: {
-    marginHorizontal: 24,
-    backgroundColor: '#F0F0F3',
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: '#D1D9E6',
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  chartRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    height: 140,
-  },
-  chartBarWrap: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  chartValue: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6C63FF',
-    marginBottom: 4,
-  },
-  chartBar: {
-    width: 20,
-    borderRadius: 10,
-    minHeight: 4,
-  },
-  chartLabel: {
-    fontSize: 10,
-    color: '#B2BEC3',
-    marginTop: 6,
-  },
-});
+function ListCard({ list, isSelected, onSelect }: { list: WordListInfo; isSelected: boolean; onSelect: () => void }) {
+  return (
+    <Pressable
+      onPress={onSelect}
+      className={`rounded-2xl p-4 border-2 min-w-[160px] ${
+        isSelected ? 'border-accent bg-accent/5' : 'border-border bg-card'
+      }`}
+    >
+      <View className="flex-row items-center gap-2 mb-2">
+        <View
+          className="w-8 h-8 rounded-full items-center justify-center"
+          style={{ backgroundColor: `${list.color}20` }}
+        >
+          <FontAwesome6
+            name={list.icon as any}
+            size={14}
+            color={list.color}
+          />
+        </View>
+        <Text className="text-sm font-semibold text-foreground flex-1">{list.name}</Text>
+      </View>
+      <Text className="text-xs text-muted mb-2" numberOfLines={2}>{list.description}</Text>
+      <View className="flex-row gap-3">
+        <Text className="text-xs text-muted">
+          <Text className="font-semibold text-foreground">{list.totalWords}</Text> 词
+        </Text>
+        <Text className="text-xs text-muted">
+          <Text className="font-semibold text-primary">{list.knownCount}</Text> 已学
+        </Text>
+      </View>
+      {isSelected && (
+        <View className="absolute top-2 right-2">
+          <FontAwesome6 name="circle-check" size={16} color="#6C63FF" />
+        </View>
+      )}
+    </Pressable>
+  );
+}

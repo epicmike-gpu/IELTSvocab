@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useWordList } from '@/contexts/WordListContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 64;
@@ -232,6 +233,7 @@ function WordCard({
 }
 
 export default function LearnScreen() {
+  const { currentListId, currentList } = useWordList();
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -242,7 +244,7 @@ export default function LearnScreen() {
   const fetchWords = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/words/batch?offset=0&limit=10`);
+      const res = await fetch(`${BASE_URL}/api/v1/words/batch?listId=${currentListId}&offset=0&limit=10`);
       const data = await res.json();
       setWords(data.words);
       setCurrentIndex(0);
@@ -252,7 +254,7 @@ export default function LearnScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentListId]);
 
   useEffect(() => {
     fetchWords();
@@ -270,17 +272,25 @@ export default function LearnScreen() {
     const word = words[currentIndex];
     if (!word) return;
     setSessionCount((c) => c + 1);
-    fetch(`${BASE_URL}/api/v1/words/${word.id}/known`, { method: 'POST' }).catch(() => { /* ignore */ });
+    fetch(`${BASE_URL}/api/v1/words/${word.id}/known`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listId: currentListId }),
+    }).catch(() => { /* ignore */ });
     handleNext();
-  }, [words, currentIndex, handleNext]);
+  }, [words, currentIndex, handleNext, currentListId]);
 
   const handleUnknown = useCallback(() => {
     const word = words[currentIndex];
     if (!word) return;
     setSessionCount((c) => c + 1);
-    fetch(`${BASE_URL}/api/v1/words/${word.id}/unknown`, { method: 'POST' }).catch(() => { /* ignore */ });
+    fetch(`${BASE_URL}/api/v1/words/${word.id}/unknown`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listId: currentListId }),
+    }).catch(() => { /* ignore */ });
     handleNext();
-  }, [words, currentIndex, handleNext]);
+  }, [words, currentIndex, handleNext, currentListId]);
 
   const handleLoadMore = () => {
     setAllDone(false);
@@ -334,7 +344,7 @@ export default function LearnScreen() {
         <View style={[styles.container, { paddingTop: insets.top + 4 }]}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>雅思词汇</Text>
+            <Text style={styles.headerTitle}>{currentList?.name || '雅思词汇'}</Text>
             <View style={styles.progressBadge}>
               <Text style={styles.progressText}>
                 {currentIndex + 1} / {words.length}
