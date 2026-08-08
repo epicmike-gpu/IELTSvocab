@@ -482,6 +482,261 @@ app.get('/api/v1/stats', (req, res) => {
   });
 });
 
+// ── Auth APIs ────────────────────────────────────────────────────
+
+// 验证码存储（内存，生产环境应使用 Redis）
+const verificationCodes = new Map<string, { code: string; expires: number }>();
+
+// 发送验证码（模拟，实际应接入短信服务）
+app.post('/api/v1/auth/send-code', async (req, res) => {
+  const { phone } = req.body;
+  if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+    return res.status(400).json({ error: 'Invalid phone number' });
+  }
+
+  // 生成6位验证码
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expires = Date.now() + 5 * 60 * 1000; // 5分钟过期
+
+  verificationCodes.set(phone, { code, expires });
+
+  // 实际应调用短信服务发送验证码
+  console.log(`[Auth] Verification code for ${phone}: ${code}`);
+
+  res.json({ success: true, message: 'Verification code sent' });
+});
+
+// 验证登录
+app.post('/api/v1/auth/verify-code', async (req, res) => {
+  const { phone, code } = req.body;
+  if (!phone || !code) {
+    return res.status(400).json({ error: 'Phone and code required' });
+  }
+
+  const stored = verificationCodes.get(phone);
+  if (!stored) {
+    return res.status(400).json({ error: 'Code not found or expired' });
+  }
+
+  if (Date.now() > stored.expires) {
+    verificationCodes.delete(phone);
+    return res.status(400).json({ error: 'Code expired' });
+  }
+
+  if (stored.code !== code) {
+    return res.status(400).json({ error: 'Invalid code' });
+  }
+
+  // 验证成功，创建或获取用户
+  verificationCodes.delete(phone);
+
+  try {
+    const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');
+    const supabase = getSupabaseClient();
+    
+    // 查找用户
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('phone', phone)
+      .single();
+
+    let user = existingUser;
+
+    if (!user) {
+      // 创建新用户
+      const { data: newUser, error } = await supabase
+        .from('users')
+        .insert({ phone, nickname: `用户${phone.slice(-4)}` })
+        .select()
+        .single();
+
+      if (error) throw error;
+      user = newUser;
+    }
+
+    // 生成简单的 token（实际应使用 JWT）
+    const token = Buffer.from(`${user.id}:${Date.now()}`).toString('base64');
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        nickname: user.nickname,
+        avatar: user.avatar,
+      },
+    });
+  } catch (error) {
+    console.error('Auth error:', error);
+    res.status(500).json({ error: 'Authentication failed' });
+  }
+});
+
+// 获取当前用户
+app.get('/api/v1/auth/me', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const decoded = Buffer.from(token, 'base64').toString();
+    const userId = decoded.split(':')[0];
+
+    const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');
+    const supabase = getSupabaseClient();
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error || !user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    res.json({
+      id: user.id,
+      phone: user.phone,
+      nickname: user.nickname,
+      avatar: user.avatar,
+    });
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+// ── Learning Record APIs ─────────────────────────────────────────
+
+// 保存学习记录
+app.post('/api/v1/learning/record', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const decoded = Buffer.from(token, 'base64').toString();
+    const userId = decoded.split(':')[0];
+
+    const { wordId, wordListId, status } = req.body;
+    if (!wordId || !wordListId || !status) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');
+    const supabase = getSupabaseClient();
+    
+    // 检查是否已有记录
+    const { data: existing } = await supabase
+      .from('learning_records')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('word_id', wordId)
+      .eq('list_id', wordListId)
+      .single();
+
+    if (existing) {
+      // 更新记录
+      await supabase
+        .from('learning_records')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', existing.id);
+    } else {
+      // 插入新记录
+      await supabase
+        .from('learning_records')
+        .insert({ user_id: userId, word_id: wordId, list_id: wordListId, status });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Learning record error:', error);
+    res.status(500).json({ error: 'Failed to save record' });
+  }
+});
+
+// 获取用户学习进度
+app.get('/api/v1/learning/progress', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const decoded = Buffer.from(token, 'base64').toString();
+    const userId = decoded.split(':')[0];
+
+    const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');
+    const supabase = getSupabaseClient();
+    
+    const { data: records, error } = await supabase
+      .from('learning_records')
+      .select('word_id, list_id, status')
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    // 按词表分组统计
+    const progress: Record<string, { known: number; unknown: number; total: number }> = {};
+    records?.forEach(r => {
+      if (!progress[r.list_id]) {
+        progress[r.list_id] = { known: 0, unknown: 0, total: 0 };
+      }
+      progress[r.list_id].total++;
+      if (r.status === 'known') progress[r.list_id].known++;
+      else if (r.status === 'unknown') progress[r.list_id].unknown++;
+    });
+
+    res.json({ progress });
+  } catch (error) {
+    console.error('Progress error:', error);
+    res.status(500).json({ error: 'Failed to get progress' });
+  }
+});
+
+// 获取用户复习本
+app.get('/api/v1/learning/review', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const decoded = Buffer.from(token, 'base64').toString();
+    const userId = decoded.split(':')[0];
+    const listId = req.query.listId as string || 'core';
+
+    const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');
+    const supabase = getSupabaseClient();
+    
+    const { data: records, error } = await supabase
+      .from('learning_records')
+      .select('word_id')
+      .eq('user_id', userId)
+      .eq('list_id', listId)
+      .eq('status', 'unknown');
+
+    if (error) throw error;
+
+    // 获取词表数据
+    const wordList = WORD_LISTS.find(wl => wl.id === listId);
+    if (!wordList) {
+      return res.status(404).json({ error: 'Word list not found' });
+    }
+
+    const wordIds = records?.map(r => r.word_id) || [];
+    const reviewWords = wordList.words.filter(w => wordIds.includes(w.id));
+
+    res.json({ words: reviewWords });
+  } catch (error) {
+    console.error('Review error:', error);
+    res.status(500).json({ error: 'Failed to get review words' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);
 });
