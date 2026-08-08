@@ -494,8 +494,8 @@ app.post('/api/v1/auth/send-code', async (req, res) => {
     return res.status(400).json({ error: 'Invalid phone number' });
   }
 
-  // 生成6位验证码
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  // 使用固定测试验证码 123456
+  const code = '123456';
   const expires = Date.now() + 5 * 60 * 1000; // 5分钟过期
 
   verificationCodes.set(phone, { code, expires });
@@ -503,7 +503,7 @@ app.post('/api/v1/auth/send-code', async (req, res) => {
   // 实际应调用短信服务发送验证码
   console.log(`[Auth] Verification code for ${phone}: ${code}`);
 
-  res.json({ success: true, message: 'Verification code sent' });
+  res.json({ success: true, message: 'Verification code sent', code: '123456' });
 });
 
 // 验证登录
