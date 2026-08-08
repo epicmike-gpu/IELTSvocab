@@ -150,7 +150,7 @@ function ListCard({ list, progress, isSelected, onSelect }: {
   onSelect: () => void;
 }) {
   const learned = progress?.total || 0;
-  const total = list.wordCount || 0;
+  const total = list.totalWords || 0;
   const percent = total > 0 ? Math.round((learned / total) * 100) : 0;
 
   return (
