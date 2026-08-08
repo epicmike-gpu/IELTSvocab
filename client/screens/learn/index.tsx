@@ -41,7 +41,7 @@ interface Word {
   difficulty: 1 | 2 | 3;
 }
 
-const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+const BASE_URL = '';
 
 const difficultyLabel = (d: number) => {
   if (d === 1) return '基础';
@@ -256,6 +256,7 @@ export default function LearnScreen() {
   const [loading, setLoading] = useState(true);
   const [allDone, setAllDone] = useState(false);
   const [sessionCount, setSessionCount] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
   const insets = useSafeAreaInsets();
 
   const fetchWords = useCallback(async () => {
@@ -286,8 +287,10 @@ export default function LearnScreen() {
   }, [currentIndex, words.length]);
 
   const handleKnown = useCallback(() => {
+    if (isAnimating) return;
     const word = words[currentIndex];
     if (!word) return;
+    setIsAnimating(true);
     setSessionCount((c) => c + 1);
     // 使用新的学习记录 API
     fetch(`${BASE_URL}/api/v1/learning/record`, {
@@ -303,11 +306,14 @@ export default function LearnScreen() {
       }),
     }).catch(() => { /* ignore */ });
     handleNext();
-  }, [words, currentIndex, handleNext, currentListId, token]);
+    setTimeout(() => setIsAnimating(false), 300);
+  }, [words, currentIndex, handleNext, currentListId, token, isAnimating]);
 
   const handleUnknown = useCallback(() => {
+    if (isAnimating) return;
     const word = words[currentIndex];
     if (!word) return;
+    setIsAnimating(true);
     setSessionCount((c) => c + 1);
     // 使用新的学习记录 API
     fetch(`${BASE_URL}/api/v1/learning/record`, {
@@ -323,7 +329,8 @@ export default function LearnScreen() {
       }),
     }).catch(() => { /* ignore */ });
     handleNext();
-  }, [words, currentIndex, handleNext, currentListId, token]);
+    setTimeout(() => setIsAnimating(false), 300);
+  }, [words, currentIndex, handleNext, currentListId, token, isAnimating]);
 
   const handleLoadMore = () => {
     setAllDone(false);
