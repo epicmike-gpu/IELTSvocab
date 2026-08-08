@@ -59,6 +59,15 @@ function speakWord(word: string) {
   Speech.speak(word, { language: 'en-GB', rate: 0.85 });
 }
 
+function getWordFontSize(word: string): number {
+  const len = word.length;
+  if (len <= 5) return 48;
+  if (len <= 8) return 42;
+  if (len <= 12) return 36;
+  if (len <= 16) return 30;
+  return 26;
+}
+
 function WordCard({
   word,
   onSwipeLeft,
@@ -168,7 +177,13 @@ function WordCard({
           </View>
 
           <View style={styles.cardContent}>
-            <Text style={styles.wordText}>{word.word}</Text>
+            <Text 
+              style={[styles.wordText, { fontSize: getWordFontSize(word.word) }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {word.word}
+            </Text>
             <Text style={styles.phoneticText}>{word.phonetic}</Text>
             <Text style={styles.posText}>{word.pos}</Text>
             {isTop && (
