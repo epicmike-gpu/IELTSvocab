@@ -1,54 +1,57 @@
-import { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, TextInput } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useFocusEffect } from 'expo-router';
-import { useWordList, WordListInfo } from '@/contexts/WordListContext';
+import { useWordList } from '@/contexts/WordListContext';
+import { useAuth } from '@/contexts/AuthContext';
 
-const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+const BASE_URL = '';
 
-interface StatsData {
-  todayLearned: number;
-  todayKnown: number;
-  todayUnknown: number;
-  totalKnown: number;
-  totalReview: number;
-  totalWords: number;
-  streak: number;
-  last7Days: { date: string; learned: number }[];
+interface ProgressData {
+  known: number;
+  unknown: number;
+  total: number;
 }
 
 export default function StatsScreen() {
   const { currentListId, lists, setListId, refreshLists } = useWordList();
-  const [stats, setStats] = useState<StatsData | null>(null);
+  const { token } = useAuth();
+  const [progress, setProgress] = useState<Record<string, ProgressData>>({});
   const [loading, setLoading] = useState(true);
 
-  const fetchStats = useCallback(async () => {
+  const fetchProgress = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${BASE_URL}/api/v1/stats?listId=${currentListId}`);
+      const res = await fetch(`${BASE_URL}/api/v1/learning/progress`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
-      setStats(data);
+      setProgress(data.progress || {});
     } catch (e) {
-      console.error('Failed to fetch stats:', e);
+      console.error('Failed to fetch progress:', e);
     } finally {
       setLoading(false);
     }
-  }, [currentListId]);
+  }, [token]);
 
   useFocusEffect(useCallback(() => {
-    fetchStats();
+    fetchProgress();
     refreshLists();
-  }, [fetchStats, refreshLists]));
+  }, [fetchProgress, refreshLists]));
 
   const handleSelectList = (listId: string) => {
     setListId(listId);
   };
 
-  const progress = stats ? (stats.totalWords > 0 ? Math.round(((stats.totalKnown + stats.totalReview) / stats.totalWords) * 100) : 0) : 0;
-  const accuracy = stats && (stats.totalKnown + stats.totalReview) > 0
-    ? Math.round((stats.totalKnown / (stats.totalKnown + stats.totalReview)) * 100)
-    : 0;
+  const currentProgress = progress[currentListId] || { known: 0, unknown: 0, total: 0 };
+  const currentList = lists.find(l => l.id === currentListId);
+  const totalWords = currentList?.totalWords || 0;
+  const learned = currentProgress.total || 0;
+  const known = currentProgress.known || 0;
+  const unknown = currentProgress.unknown || 0;
+  const accuracy = learned > 0 ? Math.round((known / learned) * 100) : 0;
+  const progressPercent = totalWords > 0 ? Math.round((learned / totalWords) * 100) : 0;
 
   return (
     <Screen>
@@ -66,182 +69,120 @@ export default function StatsScreen() {
         {/* Word List Selector */}
         <View className="px-6 mb-6">
           <Text className="text-sm font-semibold text-muted mb-3">选择词表</Text>
-          <View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3">
-              {lists.map((list) => (
-                <ListCard
-                  key={list.id}
-                  list={list}
-                  isSelected={list.id === currentListId}
-                  onSelect={() => handleSelectList(list.id)}
-                />
-              ))}
-              {lists.length === 0 && (
-                <View className="px-4 py-8 items-center">
-                  <ActivityIndicator color="#6C63FF" />
-                </View>
-              )}
-            </ScrollView>
-          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3">
+            {lists.map((list) => (
+              <ListCard
+                key={list.id}
+                list={list}
+                progress={progress[list.id]}
+                isSelected={list.id === currentListId}
+                onSelect={() => handleSelectList(list.id)}
+              />
+            ))}
+          </ScrollView>
         </View>
 
-        {loading ? (
-          <View className="flex-1 items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#6C63FF" />
-          </View>
-        ) : stats ? (
-          <>
-            {/* Today Stats */}
-            <View className="px-6 mb-6">
-              <Text className="text-sm font-semibold text-muted mb-3">今日学习</Text>
-              <View className="bg-card rounded-3xl p-5 border border-border">
-                <View className="flex-row justify-between items-center mb-4">
-                  <View>
-                    <Text className="text-4xl font-bold text-foreground">{stats.todayLearned}</Text>
-                    <Text className="text-sm text-muted mt-1">今日已学</Text>
-                  </View>
-                  <View className="w-16 h-16 rounded-full bg-accent/10 items-center justify-center">
-                    <FontAwesome6 name="fire" size={28} color="#6C63FF" />
-                  </View>
-                </View>
-                <View className="flex-row gap-4 pt-3 border-t border-border">
-                  <View className="flex-1 items-center">
-                    <Text className="text-xl font-bold text-primary">{stats.todayKnown}</Text>
-                    <Text className="text-xs text-muted mt-0.5">认识</Text>
-                  </View>
-                  <View className="w-px bg-border" />
-                  <View className="flex-1 items-center">
-                    <Text className="text-xl font-bold text-danger">{stats.todayUnknown}</Text>
-                    <Text className="text-xs text-muted mt-0.5">不认识</Text>
-                  </View>
-                </View>
-              </View>
+        {/* Stats Cards */}
+        <View className="px-6">
+          {loading ? (
+            <View className="items-center py-12">
+              <ActivityIndicator size="large" color="#4ECDC4" />
             </View>
-
-            {/* Overall Progress */}
-            <View className="px-6 mb-6">
-              <Text className="text-sm font-semibold text-muted mb-3">总体进度</Text>
-              <View className="bg-card rounded-3xl p-5 border border-border">
-                <View className="flex-row justify-between items-center mb-4">
-                  <View>
-                    <Text className="text-4xl font-bold text-foreground">{progress}%</Text>
-                    <Text className="text-sm text-muted mt-1">
-                      {stats.totalKnown + stats.totalReview} / {stats.totalWords} 词
-                    </Text>
-                  </View>
-                  <View className="w-16 h-16 rounded-full bg-accent/10 items-center justify-center">
-                    <FontAwesome6 name="chart-line" size={28} color="#6C63FF" />
-                  </View>
+          ) : (
+            <>
+              {/* Progress Card */}
+              <View className="bg-card-bg rounded-3xl p-5 mb-4" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 4 }}>
+                <Text className="text-sm text-muted mb-3">学习进度</Text>
+                <View className="flex-row items-end gap-2 mb-3">
+                  <Text className="text-4xl font-bold text-foreground">{learned}</Text>
+                  <Text className="text-muted text-lg mb-1">/ {totalWords} 词</Text>
                 </View>
-
-                {/* Progress Bar */}
-                <View className="h-3 bg-border rounded-full overflow-hidden mb-4">
-                  <View
-                    className="h-full bg-accent rounded-full"
-                    style={{ width: `${progress}%` }}
+                <View className="h-3 bg-background rounded-full overflow-hidden">
+                  <View 
+                    className="h-full bg-accent-mint rounded-full"
+                    style={{ width: `${progressPercent}%` }}
                   />
                 </View>
-
-                <View className="flex-row gap-4 pt-3 border-t border-border">
-                  <View className="flex-1 items-center">
-                    <Text className="text-xl font-bold text-primary">{stats.totalKnown}</Text>
-                    <Text className="text-xs text-muted mt-0.5">已掌握</Text>
-                  </View>
-                  <View className="w-px bg-border" />
-                  <View className="flex-1 items-center">
-                    <Text className="text-xl font-bold text-warning">{stats.totalReview}</Text>
-                    <Text className="text-xs text-muted mt-0.5">待复习</Text>
-                  </View>
-                  <View className="w-px bg-border" />
-                  <View className="flex-1 items-center">
-                    <Text className="text-xl font-bold text-foreground">{accuracy}%</Text>
-                    <Text className="text-xs text-muted mt-0.5">正确率</Text>
-                  </View>
-                </View>
+                <Text className="text-sm text-muted mt-2">{progressPercent}% 完成</Text>
               </View>
-            </View>
 
-            {/* Streak */}
-            <View className="px-6 mb-6">
-              <Text className="text-sm font-semibold text-muted mb-3">连续学习</Text>
-              <View className="bg-card rounded-3xl p-5 border border-border flex-row items-center gap-4">
-                <View className="w-14 h-14 rounded-full bg-warning/10 items-center justify-center">
-                  <FontAwesome6 name="trophy" size={24} color="#F5A623" />
-                </View>
-                <View>
-                  <Text className="text-3xl font-bold text-foreground">{stats.streak}</Text>
-                  <Text className="text-sm text-muted mt-0.5">天连续学习</Text>
-                </View>
+              {/* Stats Grid */}
+              <View className="flex-row gap-3 mb-4">
+                <StatCard
+                  icon="check-circle"
+                  iconColor="#4ECDC4"
+                  label="认识"
+                  value={String(known)}
+                />
+                <StatCard
+                  icon="times-circle"
+                  iconColor="#FF6B6B"
+                  label="不认识"
+                  value={String(unknown)}
+                />
+                <StatCard
+                  icon="bullseye"
+                  iconColor="#FFB347"
+                  label="正确率"
+                  value={`${accuracy}%`}
+                />
               </View>
-            </View>
 
-            {/* 7-Day Chart */}
-            <View className="px-6 mb-6">
-              <Text className="text-sm font-semibold text-muted mb-3">近 7 天</Text>
-              <View className="bg-card rounded-3xl p-5 border border-border">
-                <View className="flex-row justify-between items-end h-32">
-                  {stats.last7Days.map((day, index) => {
-                    const maxLearned = Math.max(...stats.last7Days.map(d => d.learned), 1);
-                    const height = Math.max((day.learned / maxLearned) * 100, 4);
-                    return (
-                      <View key={index} className="flex-1 items-center gap-2">
-                        <Text className="text-xs font-medium text-foreground">{day.learned}</Text>
-                        <View
-                          className="w-6 bg-accent rounded-t-lg"
-                          style={{ height: `${height}%` }}
-                        />
-                        <Text className="text-xs text-muted">{day.date}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
+              {/* Tips */}
+              <View className="bg-accent-mint/10 rounded-3xl p-4 flex-row items-center gap-3">
+                <FontAwesome6 name="lightbulb" size={20} color="#4ECDC4" />
+                <Text className="text-foreground/80 text-sm flex-1">
+                  坚持每天学习，记忆更牢固！
+                </Text>
               </View>
-            </View>
-
-          </>
-        ) : null}
+            </>
+          )}
+        </View>
       </ScrollView>
     </Screen>
   );
 }
 
-function ListCard({ list, isSelected, onSelect }: { list: WordListInfo; isSelected: boolean; onSelect: () => void }) {
+function ListCard({ list, progress, isSelected, onSelect }: { 
+  list: any; 
+  progress?: ProgressData;
+  isSelected: boolean; 
+  onSelect: () => void;
+}) {
+  const learned = progress?.total || 0;
+  const total = list.wordCount || 0;
+  const percent = total > 0 ? Math.round((learned / total) * 100) : 0;
+
   return (
     <Pressable
       onPress={onSelect}
-      className={`rounded-2xl p-4 border-2 min-w-[160px] ${
-        isSelected ? 'border-accent bg-accent/5' : 'border-border bg-card'
-      }`}
+      className={`px-4 py-3 rounded-2xl min-w-[140px] ${isSelected ? 'bg-accent-mint/15 border-2 border-accent-mint' : 'bg-card-bg border-2 border-transparent'}`}
+      style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}
     >
-      <View className="flex-row items-center gap-2 mb-2">
-        <View
-          className="w-8 h-8 rounded-full items-center justify-center"
-          style={{ backgroundColor: `${list.color}20` }}
-        >
-          <FontAwesome6
-            name={list.icon as any}
-            size={14}
-            color={list.color}
-          />
-        </View>
-        <Text className="text-sm font-semibold text-foreground flex-1">{list.name}</Text>
+      <View className="flex-row items-center gap-2 mb-1">
+        <FontAwesome6 name={list.icon as any} size={14} color={list.color} />
+        <Text className="text-foreground font-semibold text-sm" numberOfLines={1}>{list.name}</Text>
       </View>
-      <Text className="text-xs text-muted mb-2" numberOfLines={2}>{list.description}</Text>
-      <View className="flex-row gap-3">
-        <Text className="text-xs text-muted">
-          <Text className="font-semibold text-foreground">{list.totalWords}</Text> 词
-        </Text>
-        <Text className="text-xs text-muted">
-          <Text className="font-semibold text-primary">{list.knownCount}</Text> 已学
-        </Text>
+      <Text className="text-muted text-xs">{total} 词</Text>
+      <View className="mt-2 h-1.5 bg-background rounded-full overflow-hidden">
+        <View className="h-full bg-accent-mint rounded-full" style={{ width: `${percent}%` }} />
       </View>
+      <Text className="text-xs text-muted mt-1">{percent}%</Text>
       {isSelected && (
         <View className="absolute top-2 right-2">
-          <FontAwesome6 name="circle-check" size={16} color="#6C63FF" />
+          <FontAwesome6 name="check-circle" size={16} color="#4ECDC4" />
         </View>
       )}
     </Pressable>
   );
 }
 
-
+function StatCard({ icon, iconColor, label, value }: { icon: string; iconColor: string; label: string; value: string }) {
+  return (
+    <View className="flex-1 bg-card-bg rounded-2xl p-4 items-center" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
+      <FontAwesome6 name={icon as any} size={22} color={iconColor} />
+      <Text className="text-foreground text-xl font-bold mt-2">{value}</Text>
+      <Text className="text-muted text-xs mt-0.5">{label}</Text>
+    </View>
+  );
+}
