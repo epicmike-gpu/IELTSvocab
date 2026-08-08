@@ -3,25 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 // 获取后端 API 地址
-// 在 Web 预览中使用 localhost，在移动端使用开发服务器的 IP 地址
-const getBaseUrl = () => {
-  if (process.env.EXPO_PUBLIC_BACKEND_BASE_URL) {
-    return process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
-  }
-  
-  // 在开发环境中，使用 Expo 开发服务器的地址
-  if (__DEV__) {
-    const debuggerHost = Constants.expoConfig?.hostUri;
-    if (debuggerHost) {
-      const host = debuggerHost.split(':')[0];
-      return `http://${host}:9091`;
-    }
-  }
-  
-  return 'http://localhost:9091';
-};
-
-const BASE_URL = getBaseUrl();
+// 使用相对路径，让 Metro Proxy 自动转发到后端
+const BASE_URL = '';
 
 interface User {
   id: string;
