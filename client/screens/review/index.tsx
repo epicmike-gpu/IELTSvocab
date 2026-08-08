@@ -28,15 +28,14 @@ if (Platform.OS === 'web') {
 const BASE_URL = '';
 
 interface ReviewWord {
-  wordId: number;
+  id: number;
   word: string;
   phonetic: string;
   pos: string;
   meaning: string;
   example: string;
   exampleCn: string;
-  reviewCount: number;
-  lastReviewed: string;
+  difficulty: 1 | 2 | 3;
 }
 
 function WordItem({ item, onRemove }: { item: ReviewWord; onRemove: () => void }) {
@@ -147,7 +146,7 @@ export default function ReviewScreen() {
           status: 'known'
         }),
       });
-      setReviewWords((prev) => prev.filter((w) => w.wordId !== wordId));
+      setReviewWords((prev) => prev.filter((w) => w.id !== wordId));
     } catch {
       // ignore
     }
@@ -178,9 +177,9 @@ export default function ReviewScreen() {
         ) : (
           <FlatList
             data={reviewWords}
-            keyExtractor={(item) => String(item.wordId)}
+            keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => (
-              <WordItem item={item} onRemove={() => handleRemove(item.wordId)} />
+              <WordItem item={item} onRemove={() => handleRemove(item.id)} />
             )}
             contentContainerStyle={{ paddingBottom: 100 }}
             showsVerticalScrollIndicator={false}
