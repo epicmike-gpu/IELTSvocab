@@ -2,7 +2,7 @@ import { Screen } from '@/components/Screen';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWordList } from '@/contexts/WordListContext';
 import { useFocusEffect } from 'expo-router';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -64,9 +64,6 @@ function WordItem({ item, onRemove }: { item: ReviewWord; onRemove: () => void }
             </Text>
           </View>
           <View className="flex-row items-center gap-3">
-            <View className="bg-review-badge/15 px-2 py-1 rounded-full">
-              <Text className="text-review-badge text-xs font-bold">{item.reviewCount}次</Text>
-            </View>
             <FontAwesome6
               name={expanded ? 'chevron-up' : 'chevron-down'}
               size={14}
@@ -111,7 +108,7 @@ export default function ReviewScreen() {
   const [reviewWords, setReviewWords] = useState<ReviewWord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchReview = async () => {
+  const fetchReview = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${BASE_URL}/api/v1/learning/review?listId=${currentListId}`, {
@@ -124,12 +121,12 @@ export default function ReviewScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentListId, token]);
 
   useFocusEffect(
-    useState(() => () => {
+    useCallback(() => {
       fetchReview();
-    })[0]
+    }, [fetchReview])
   );
 
   const handleRemove = async (wordId: number) => {
