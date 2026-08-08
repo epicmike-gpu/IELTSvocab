@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
 import { useWordList } from '@/contexts/WordListContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -234,6 +235,7 @@ function WordCard({
 
 export default function LearnScreen() {
   const { currentListId, currentList } = useWordList();
+  const { token } = useAuth();
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -272,25 +274,41 @@ export default function LearnScreen() {
     const word = words[currentIndex];
     if (!word) return;
     setSessionCount((c) => c + 1);
-    fetch(`${BASE_URL}/api/v1/words/${word.id}/known`, {
+    // 使用新的学习记录 API
+    fetch(`${BASE_URL}/api/v1/learning/record`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ listId: currentListId }),
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ 
+        wordId: word.id, 
+        wordListId: currentListId, 
+        status: 'known' 
+      }),
     }).catch(() => { /* ignore */ });
     handleNext();
-  }, [words, currentIndex, handleNext, currentListId]);
+  }, [words, currentIndex, handleNext, currentListId, token]);
 
   const handleUnknown = useCallback(() => {
     const word = words[currentIndex];
     if (!word) return;
     setSessionCount((c) => c + 1);
-    fetch(`${BASE_URL}/api/v1/words/${word.id}/unknown`, {
+    // 使用新的学习记录 API
+    fetch(`${BASE_URL}/api/v1/learning/record`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ listId: currentListId }),
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ 
+        wordId: word.id, 
+        wordListId: currentListId, 
+        status: 'unknown' 
+      }),
     }).catch(() => { /* ignore */ });
     handleNext();
-  }, [words, currentIndex, handleNext, currentListId]);
+  }, [words, currentIndex, handleNext, currentListId, token]);
 
   const handleLoadMore = () => {
     setAllDone(false);
