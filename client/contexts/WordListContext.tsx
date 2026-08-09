@@ -28,7 +28,7 @@ const WordListContext = createContext<WordListContextType>({
   refreshLists: async () => undefined,
 });
 
-const BASE_URL = '';
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
 export function WordListProvider({ children }: { children: React.ReactNode }) {
   const [currentListId, setCurrentListId] = useState('core');

@@ -6,7 +6,7 @@ import { useFocusEffect } from 'expo-router';
 import { useWordList } from '@/contexts/WordListContext';
 import { useAuth } from '@/contexts/AuthContext';
 
-const BASE_URL = '';
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
 interface ProgressData {
   known: number;
@@ -27,7 +27,6 @@ export default function StatsScreen() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      console.log('[Stats] Progress data:', data);
       setProgress(data.progress || {});
     } catch (e) {
       console.error('Failed to fetch progress:', e);
@@ -53,8 +52,6 @@ export default function StatsScreen() {
   const unknown = currentProgress.unknown || 0;
   const accuracy = learned > 0 ? Math.round((known / learned) * 100) : 0;
   const progressPercent = totalWords > 0 ? Math.round((learned / totalWords) * 100) : 0;
-
-  console.log('[Stats] Current list:', currentListId, 'Progress:', currentProgress, 'Total words:', totalWords);
 
   return (
     <Screen>

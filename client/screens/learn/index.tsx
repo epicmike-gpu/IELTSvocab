@@ -41,7 +41,7 @@ interface Word {
   difficulty: 1 | 2 | 3;
 }
 
-const BASE_URL = '';
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
 const difficultyLabel = (d: number) => {
   if (d === 1) return '基础';
@@ -262,7 +262,9 @@ export default function LearnScreen() {
   const fetchWords = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/words/batch?listId=${currentListId}&offset=0&limit=10`);
+      const res = await fetch(`${BASE_URL}/api/v1/words/batch?listId=${currentListId}&offset=0&limit=10`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       const data = await res.json();
       setWords(data.words);
       setCurrentIndex(0);
@@ -272,7 +274,7 @@ export default function LearnScreen() {
     } finally {
       setLoading(false);
     }
-  }, [currentListId]);
+  }, [currentListId, token]);
 
   useEffect(() => {
     fetchWords();

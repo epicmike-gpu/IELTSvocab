@@ -300,7 +300,7 @@ app.get('/api/v1/word-lists', (req, res) => {
 
 // ── API: Get batch of words to learn ─────────────────────────────
 
-app.get('/api/v1/words/batch', (req, res) => {
+app.get('/api/v1/words/batch', async (req, res) => {
   const listId = (req.query.listId as string) || 'core';
   const offset = parseInt(req.query.offset as string) || 0;
   const limit = parseInt(req.query.limit as string) || 10;
@@ -310,8 +310,37 @@ app.get('/api/v1/words/batch', (req, res) => {
     return res.status(404).json({ error: 'Word list not found' });
   }
 
-  const state = getListState(listId);
-  const available = wordList.words.filter(w => !state.knownWordIds.has(w.id) && !state.reviewWords.has(w.id));
+  // 如果有 token，从数据库获取已学习的单词 ID
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  let learnedWordIds = new Set<number>();
+  
+  if (token) {
+    try {
+      const decoded = Buffer.from(token, 'base64').toString();
+      const userId = decoded.split(':')[0];
+      
+      const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');
+      const supabase = getSupabaseClient();
+      
+      const { data: records } = await supabase
+        .from('learning_records')
+        .select('word_id')
+        .eq('user_id', userId)
+        .eq('list_id', listId);
+      
+      if (records) {
+        records.forEach(r => learnedWordIds.add(r.word_id));
+      }
+    } catch (e) {
+      // ignore, use empty set
+    }
+  } else {
+    // 无 token 时使用内存状态（向后兼容）
+    const state = getListState(listId);
+    learnedWordIds = new Set([...state.knownWordIds, ...state.reviewWords]);
+  }
+
+  const available = wordList.words.filter(w => !learnedWordIds.has(w.id));
   const batch = available.slice(offset, offset + limit);
 
   res.json({

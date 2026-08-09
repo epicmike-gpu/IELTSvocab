@@ -25,7 +25,7 @@ if (Platform.OS === 'web') {
   }
 }
 
-const BASE_URL = '';
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
 interface ReviewWord {
   id: number;
