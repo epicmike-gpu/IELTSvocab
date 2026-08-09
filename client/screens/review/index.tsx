@@ -1,5 +1,4 @@
 import { Screen } from '@/components/Screen';
-import { useAuth } from '@/contexts/AuthContext';
 import { useWordList } from '@/contexts/WordListContext';
 import { useFocusEffect } from 'expo-router';
 import { useState, useCallback } from 'react';
@@ -104,16 +103,13 @@ function WordItem({ item, onRemove }: { item: ReviewWord; onRemove: () => void }
 export default function ReviewScreen() {
   const insets = useSafeAreaInsets();
   const { currentListId, currentList } = useWordList();
-  const { token } = useAuth();
   const [reviewWords, setReviewWords] = useState<ReviewWord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchReview = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/learning/review?listId=${currentListId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(`${BASE_URL}/api/v1/learning/review?listId=${currentListId}`);
       const data = await res.json();
       setReviewWords(data.words || []);
     } catch {
@@ -121,7 +117,7 @@ export default function ReviewScreen() {
     } finally {
       setLoading(false);
     }
-  }, [currentListId, token]);
+  }, [currentListId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -135,7 +131,6 @@ export default function ReviewScreen() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           wordId,

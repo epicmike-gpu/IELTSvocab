@@ -310,34 +310,25 @@ app.get('/api/v1/words/batch', async (req, res) => {
     return res.status(404).json({ error: 'Word list not found' });
   }
 
-  // 如果有 token，从数据库获取已学习的单词 ID
-  const token = req.headers.authorization?.replace('Bearer ', '');
+  // 使用固定用户 ID（无需登录）
+  const userId = 'anonymous-user';
   let learnedWordIds = new Set<number>();
   
-  if (token) {
-    try {
-      const decoded = Buffer.from(token, 'base64').toString();
-      const userId = decoded.split(':')[0];
-      
-      const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');
-      const supabase = getSupabaseClient();
-      
-      const { data: records } = await supabase
-        .from('learning_records')
-        .select('word_id')
-        .eq('user_id', userId)
-        .eq('list_id', listId);
-      
-      if (records) {
-        records.forEach(r => learnedWordIds.add(r.word_id));
-      }
-    } catch (e) {
-      // ignore, use empty set
+  try {
+    const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');
+    const supabase = getSupabaseClient();
+    
+    const { data: records } = await supabase
+      .from('learning_records')
+      .select('word_id')
+      .eq('user_id', userId)
+      .eq('list_id', listId);
+    
+    if (records) {
+      records.forEach(r => learnedWordIds.add(r.word_id));
     }
-  } else {
-    // 无 token 时使用内存状态（向后兼容）
-    const state = getListState(listId);
-    learnedWordIds = new Set([...state.knownWordIds, ...state.reviewWords]);
+  } catch (e) {
+    // ignore, use empty set
   }
 
   const available = wordList.words.filter(w => !learnedWordIds.has(w.id));
@@ -641,15 +632,10 @@ app.get('/api/v1/auth/me', async (req, res) => {
 
 // 保存学习记录
 app.post('/api/v1/learning/record', async (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  // 使用固定用户 ID（无需登录）
+  const userId = 'anonymous-user';
 
   try {
-    const decoded = Buffer.from(token, 'base64').toString();
-    const userId = decoded.split(':')[0];
-
     const { wordId, wordListId, status } = req.body;
     if (!wordId || !wordListId || !status) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -689,15 +675,10 @@ app.post('/api/v1/learning/record', async (req, res) => {
 
 // 获取用户学习进度
 app.get('/api/v1/learning/progress', async (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  // 使用固定用户 ID（无需登录）
+  const userId = 'anonymous-user';
 
   try {
-    const decoded = Buffer.from(token, 'base64').toString();
-    const userId = decoded.split(':')[0];
-
     const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');
     const supabase = getSupabaseClient();
     
@@ -728,14 +709,10 @@ app.get('/api/v1/learning/progress', async (req, res) => {
 
 // 获取用户复习本
 app.get('/api/v1/learning/review', async (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  // 使用固定用户 ID（无需登录）
+  const userId = 'anonymous-user';
 
   try {
-    const decoded = Buffer.from(token, 'base64').toString();
-    const userId = decoded.split(':')[0];
     const listId = req.query.listId as string || 'core';
 
     const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');

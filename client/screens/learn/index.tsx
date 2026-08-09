@@ -22,7 +22,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '@/contexts/AuthContext';
 import { useWordList } from '@/contexts/WordListContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -250,7 +249,6 @@ function WordCard({
 
 export default function LearnScreen() {
   const { currentListId, currentList } = useWordList();
-  const { token } = useAuth();
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -262,9 +260,7 @@ export default function LearnScreen() {
   const fetchWords = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/words/batch?listId=${currentListId}&offset=0&limit=10`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      });
+      const res = await fetch(`${BASE_URL}/api/v1/words/batch?listId=${currentListId}&offset=0&limit=10`);
       const data = await res.json();
       setWords(data.words);
       setCurrentIndex(0);
@@ -274,7 +270,7 @@ export default function LearnScreen() {
     } finally {
       setLoading(false);
     }
-  }, [currentListId, token]);
+  }, [currentListId]);
 
   useEffect(() => {
     fetchWords();
@@ -299,7 +295,6 @@ export default function LearnScreen() {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({ 
         wordId: word.id, 
@@ -309,7 +304,7 @@ export default function LearnScreen() {
     }).catch(() => { /* ignore */ });
     handleNext();
     setTimeout(() => setIsAnimating(false), 300);
-  }, [words, currentIndex, handleNext, currentListId, token, isAnimating]);
+  }, [words, currentIndex, handleNext, currentListId, isAnimating]);
 
   const handleUnknown = useCallback(() => {
     if (isAnimating) return;
@@ -322,7 +317,6 @@ export default function LearnScreen() {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({ 
         wordId: word.id, 
@@ -332,7 +326,7 @@ export default function LearnScreen() {
     }).catch(() => { /* ignore */ });
     handleNext();
     setTimeout(() => setIsAnimating(false), 300);
-  }, [words, currentIndex, handleNext, currentListId, token, isAnimating]);
+  }, [words, currentIndex, handleNext, currentListId, isAnimating]);
 
   const handleLoadMore = () => {
     setAllDone(false);

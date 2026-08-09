@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Modal, Alert } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useFocusEffect } from 'expo-router';
 import { useWordList } from '@/contexts/WordListContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { usePurchase, MATERIALS } from '@/contexts/PurchaseContext';
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
@@ -16,16 +16,16 @@ interface ProgressData {
 
 export default function StatsScreen() {
   const { currentListId, lists, setListId, refreshLists } = useWordList();
-  const { token } = useAuth();
+  const { isMaterialUnlocked, purchaseMaterial, getMaterial } = usePurchase();
   const [progress, setProgress] = useState<Record<string, ProgressData>>({});
   const [loading, setLoading] = useState(true);
+  const [purchaseModal, setPurchaseModal] = useState<{ visible: boolean; materialId: string | null }>({ visible: false, materialId: null });
+  const [purchasing, setPurchasing] = useState(false);
 
   const fetchProgress = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${BASE_URL}/api/v1/learning/progress`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(`${BASE_URL}/api/v1/learning/progress`);
       const data = await res.json();
       setProgress(data.progress || {});
     } catch (e) {
@@ -33,7 +33,7 @@ export default function StatsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useFocusEffect(useCallback(() => {
     fetchProgress();
@@ -41,7 +41,27 @@ export default function StatsScreen() {
   }, [fetchProgress, refreshLists]));
 
   const handleSelectList = (listId: string) => {
+    if (!isMaterialUnlocked(listId)) {
+      setPurchaseModal({ visible: true, materialId: listId });
+      return;
+    }
     setListId(listId);
+  };
+
+  const handlePurchase = async () => {
+    if (!purchaseModal.materialId) return;
+    
+    setPurchasing(true);
+    try {
+      await purchaseMaterial(purchaseModal.materialId);
+      setPurchaseModal({ visible: false, materialId: null });
+      Alert.alert('购买成功', '材料已解锁，开始学习吧！');
+      setListId(purchaseModal.materialId);
+    } catch (error) {
+      Alert.alert('购买失败', '请稍后重试');
+    } finally {
+      setPurchasing(false);
+    }
   };
 
   const currentProgress = progress[currentListId] || { known: 0, unknown: 0, total: 0 };
@@ -69,17 +89,26 @@ export default function StatsScreen() {
         {/* Word List Selector */}
         <View className="px-6 mb-6">
           <Text className="text-sm font-semibold text-muted mb-3">选择词表</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3">
-            {lists.map((list) => (
-              <ListCard
-                key={list.id}
-                list={list}
-                progress={progress[list.id]}
-                isSelected={list.id === currentListId}
-                onSelect={() => handleSelectList(list.id)}
-              />
-            ))}
-          </ScrollView>
+          <View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3">
+              {MATERIALS.map((material) => {
+                const list = lists.find(l => l.id === material.id);
+                if (!list) return null;
+                const unlocked = isMaterialUnlocked(material.id);
+                return (
+                  <ListCard
+                    key={material.id}
+                    list={list}
+                    material={material}
+                    progress={progress[material.id]}
+                    isSelected={material.id === currentListId}
+                    isUnlocked={unlocked}
+                    onSelect={() => handleSelectList(material.id)}
+                  />
+                );
+              })}
+            </ScrollView>
+          </View>
         </View>
 
         {/* Stats Cards */}
@@ -87,6 +116,12 @@ export default function StatsScreen() {
           {loading ? (
             <View className="items-center py-12">
               <ActivityIndicator size="large" color="#4ECDC4" />
+            </View>
+          ) : !isMaterialUnlocked(currentListId) ? (
+            <View className="bg-card-bg rounded-3xl p-8 items-center" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 4 }}>
+              <FontAwesome6 name="lock" size={48} color="#999" />
+              <Text className="text-foreground text-lg font-semibold mt-4">材料未解锁</Text>
+              <Text className="text-muted text-sm mt-2">购买后即可查看学习进度</Text>
             </View>
           ) : (
             <>
@@ -139,14 +174,83 @@ export default function StatsScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Purchase Modal */}
+      <Modal
+        visible={purchaseModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPurchaseModal({ visible: false, materialId: null })}
+      >
+        <View className="flex-1 bg-black/50 items-center justify-center p-6">
+          <View className="bg-card-bg rounded-3xl p-6 w-full max-w-[320px]" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 8 }}>
+            {purchaseModal.materialId && (() => {
+              const material = getMaterial(purchaseModal.materialId);
+              if (!material) return null;
+              return (
+                <>
+                  <View className="items-center mb-4">
+                    <FontAwesome6 name="crown" size={40} color="#FFB347" />
+                    <Text className="text-foreground text-xl font-bold mt-3">{material.name}</Text>
+                    <Text className="text-muted text-sm mt-1">解锁完整词表</Text>
+                  </View>
+
+                  <View className="bg-background rounded-2xl p-4 mb-4">
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-muted text-sm">词表内容</Text>
+                      <Text className="text-foreground font-semibold">{material.id === 'ielts_sequential' || material.id === 'ielts_random' ? '7956' : '50'} 词</Text>
+                    </View>
+                    <View className="flex-row justify-between items-center mt-2">
+                      <Text className="text-muted text-sm">例句发音</Text>
+                      <Text className="text-foreground font-semibold">✓</Text>
+                    </View>
+                    <View className="flex-row justify-between items-center mt-2">
+                      <Text className="text-muted text-sm">学习记录</Text>
+                      <Text className="text-foreground font-semibold">✓</Text>
+                    </View>
+                  </View>
+
+                  <View className="items-center mb-4">
+                    <Text className="text-muted text-sm">价格</Text>
+                    <Text className="text-foreground text-3xl font-bold">¥{material.price}</Text>
+                  </View>
+
+                  <View className="flex-row gap-3">
+                    <Pressable
+                      onPress={() => setPurchaseModal({ visible: false, materialId: null })}
+                      className="flex-1 bg-background rounded-2xl py-3 items-center"
+                    >
+                      <Text className="text-muted font-semibold">取消</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={handlePurchase}
+                      disabled={purchasing}
+                      className="flex-1 bg-accent-mint rounded-2xl py-3 items-center"
+                      style={{ opacity: purchasing ? 0.6 : 1 }}
+                    >
+                      {purchasing ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text className="text-white font-semibold">立即购买</Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
 
-function ListCard({ list, progress, isSelected, onSelect }: { 
-  list: any; 
+function ListCard({ list, material, progress, isSelected, isUnlocked, onSelect }: { 
+  list: any;
+  material: any;
   progress?: ProgressData;
-  isSelected: boolean; 
+  isSelected: boolean;
+  isUnlocked: boolean;
   onSelect: () => void;
 }) {
   const learned = progress?.total || 0;
@@ -168,7 +272,13 @@ function ListCard({ list, progress, isSelected, onSelect }: {
         <View className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: '#87CEEB' }} />
       </View>
       <Text className="text-xs text-muted mt-1">{percent}%</Text>
-      {isSelected && (
+      
+      {!isUnlocked && (
+        <View className="absolute top-2 right-2 bg-black/60 rounded-full p-1">
+          <FontAwesome6 name="lock" size={12} color="#fff" />
+        </View>
+      )}
+      {isSelected && isUnlocked && (
         <View className="absolute top-2 right-2">
           <FontAwesome6 name="check-circle" size={16} color="#4ECDC4" />
         </View>
