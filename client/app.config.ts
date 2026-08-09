@@ -17,7 +17,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.ielts.vocab",
+      "bundleIdentifier": "com.mikelu.ieltsvocab",
       "buildNumber": "1.0.0",
       "infoPlist": {
         "NSUserTrackingUsageDescription": "用于个性化学习体验"
