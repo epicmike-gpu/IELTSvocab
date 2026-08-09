@@ -99,8 +99,8 @@ export default function StatsScreen() {
                 </View>
                 <View className="h-3 bg-background rounded-full overflow-hidden">
                   <View 
-                    className="h-full bg-accent-mint rounded-full"
-                    style={{ width: `${progressPercent}%` }}
+                    className="h-full rounded-full"
+                    style={{ width: `${progressPercent}%`, backgroundColor: '#87CEEB' }}
                   />
                 </View>
                 <Text className="text-sm text-muted mt-2">{progressPercent}% 完成</Text>
@@ -165,7 +165,7 @@ function ListCard({ list, progress, isSelected, onSelect }: {
       </View>
       <Text className="text-muted text-xs">{total} 词</Text>
       <View className="mt-2 h-1.5 bg-background rounded-full overflow-hidden">
-        <View className="h-full bg-accent-mint rounded-full" style={{ width: `${percent}%` }} />
+        <View className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: '#87CEEB' }} />
       </View>
       <Text className="text-xs text-muted mt-1">{percent}%</Text>
       {isSelected && (
