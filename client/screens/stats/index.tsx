@@ -118,7 +118,7 @@ export default function StatsScreen() {
               <ActivityIndicator size="large" color="#4ECDC4" />
             </View>
           ) : !isMaterialUnlocked(currentListId) ? (
-            <View className="bg-card-bg rounded-3xl p-8 items-center" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 4 }}>
+            <View className="bg-white rounded-3xl p-8 items-center border border-gray-200" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 }}>
               <FontAwesome6 name="lock" size={48} color="#999" />
               <Text className="text-foreground text-lg font-semibold mt-4">材料未解锁</Text>
               <Text className="text-muted text-sm mt-2">购买后即可查看学习进度</Text>
@@ -126,7 +126,7 @@ export default function StatsScreen() {
           ) : (
             <>
               {/* Progress Card */}
-              <View className="bg-card-bg rounded-3xl p-5 mb-4" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 4 }}>
+              <View className="bg-white rounded-3xl p-5 mb-4 border border-gray-200" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 }}>
                 <Text className="text-sm text-muted mb-3">学习进度</Text>
                 <View className="flex-row items-end gap-2 mb-3">
                   <Text className="text-4xl font-bold text-foreground">{learned}</Text>
@@ -182,8 +182,8 @@ export default function StatsScreen() {
         animationType="fade"
         onRequestClose={() => setPurchaseModal({ visible: false, materialId: null })}
       >
-        <View className="flex-1 bg-black/50 items-center justify-center p-6">
-          <View className="bg-card-bg rounded-3xl p-6 w-full max-w-[320px]" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 8 }}>
+        <View className="flex-1 bg-black/70 items-center justify-center p-6">
+          <View className="bg-white rounded-3xl p-6 w-full max-w-[320px]" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 24, elevation: 8 }}>
             {purchaseModal.materialId && (() => {
               const material = getMaterial(purchaseModal.materialId);
               if (!material) return null;
@@ -195,7 +195,7 @@ export default function StatsScreen() {
                     <Text className="text-muted text-sm mt-1">解锁完整词表</Text>
                   </View>
 
-                  <View className="bg-background rounded-2xl p-4 mb-4">
+                  <View className="bg-gray-50 rounded-2xl p-4 mb-4 border border-gray-100">
                     <View className="flex-row justify-between items-center">
                       <Text className="text-muted text-sm">词表内容</Text>
                       <Text className="text-foreground font-semibold">{material.id === 'ielts_sequential' || material.id === 'ielts_random' ? '7956' : '50'} 词</Text>
@@ -218,7 +218,7 @@ export default function StatsScreen() {
                   <View className="flex-row gap-3">
                     <Pressable
                       onPress={() => setPurchaseModal({ visible: false, materialId: null })}
-                      className="flex-1 bg-background rounded-2xl py-3 items-center"
+                      className="flex-1 bg-gray-100 rounded-2xl py-3 items-center"
                     >
                       <Text className="text-muted font-semibold">取消</Text>
                     </Pressable>
@@ -260,8 +260,8 @@ function ListCard({ list, material, progress, isSelected, isUnlocked, onSelect }
   return (
     <Pressable
       onPress={onSelect}
-      className={`px-4 py-3 rounded-2xl min-w-[140px] ${isSelected ? 'bg-accent-mint/15 border-2 border-accent-mint' : 'bg-card-bg border-2 border-transparent'}`}
-      style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}
+      className={`px-4 py-3 rounded-2xl min-w-[140px] ${isSelected ? 'bg-accent-mint/15 border-2 border-accent-mint' : 'bg-white border border-gray-200'}`}
+      style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 }}
     >
       <View className="flex-row items-center gap-2 mb-1">
         <FontAwesome6 name={list.icon as any} size={14} color={list.color} />
@@ -289,7 +289,7 @@ function ListCard({ list, material, progress, isSelected, isUnlocked, onSelect }
 
 function StatCard({ icon, iconColor, label, value }: { icon: string; iconColor: string; label: string; value: string }) {
   return (
-    <View className="flex-1 bg-card-bg rounded-2xl p-4 items-center" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
+    <View className="flex-1 bg-white rounded-2xl p-4 items-center border border-gray-200" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 }}>
       <FontAwesome6 name={icon as any} size={22} color={iconColor} />
       <Text className="text-foreground text-xl font-bold mt-2">{value}</Text>
       <Text className="text-muted text-xs mt-0.5">{label}</Text>
