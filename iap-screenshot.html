@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雅思词汇 100 分 - 购买界面截图</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #F0F0F3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .phone-frame {
+            width: 390px;
+            height: 844px;
+            background: #F0F0F3;
+            border-radius: 40px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .status-bar {
+            height: 44px;
+            background: #F0F0F3;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 20px;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 32px;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        .header p {
+            font-size: 16px;
+            color: #666;
+        }
+        .section-title {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+        .word-lists {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+        .word-card {
+            min-width: 200px;
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            position: relative;
+        }
+        .word-card.locked {
+            opacity: 0.7;
+        }
+        .word-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .word-card-icon {
+            font-size: 20px;
+        }
+        .word-card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        .word-card-count {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+        .progress-bar {
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #87CEEB;
+            border-radius: 3px;
+        }
+        .progress-text {
+            font-size: 12px;
+            color: #999;
+        }
+        .lock-icon {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            font-size: 20px;
+        }
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+        .modal {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 320px;
+            text-align: center;
+        }
+        .modal-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        .modal-desc {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .modal-price {
+            font-size: 32px;
+            font-weight: 700;
+            color: #6C63FF;
+            margin-bottom: 24px;
+        }
+        .modal-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .btn {
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #6C63FF;
+            color: white;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #666;
+        }
+        .tab-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding-bottom: 20px;
+        }
+        .tab-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .tab-icon {
+            font-size: 24px;
+        }
+        .tab-label {
+            font-size: 12px;
+            color: #999;
+        }
+        .tab-item.active .tab-label {
+            color: #6C63FF;
+        }
+    </style>
+</head>
+<body>
+    <div class="phone-frame">
+        <div class="status-bar">
+            <span>9:41</span>
+            <span>📶 🔋</span>
+        </div>
+        
+        <div class="content">
+            <div class="header">
+                <h1>学习统计</h1>
+                <p>选择词表，查看学习进度</p>
+            </div>
+            
+            <div class="section-title">选择词表</div>
+            
+            <div class="word-lists">
+                <div class="word-card">
+                    <div class="word-card-header">
+                        <span class="word-card-icon">📋</span>
+                        <span class="word-card-title">核心词汇</span>
+                    </div>
+                    <div class="word-card-count">50 词</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 100%"></div>
+                    </div>
+                    <div class="progress-text">100%</div>
+                </div>
+                
+                <div class="word-card locked">
+                    <div class="word-card-header">
+                        <span class="word-card-icon">🔀</span>
+                        <span class="word-card-title">雅思 8000 词</span>
+                    </div>
+                    <div class="word-card-count">7956 词</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-text">0%</div>
+                    <span class="lock-icon">🔒</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal-overlay">
+            <div class="modal">
+                <div class="modal-icon">📚</div>
+                <div class="modal-title">雅思 8000 词顺序版</div>
+                <div class="modal-desc">完整雅思 8000 词汇表，包含例句和发音</div>
+                <div class="modal-price">¥6</div>
+                <div class="modal-buttons">
+                    <button class="btn btn-primary">购买</button>
+                    <button class="btn btn-secondary">取消</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-bar">
+            <div class="tab-item">
+                <span class="tab-icon">🎓</span>
+                <span class="tab-label">学习</span>
+            </div>
+            <div class="tab-item">
+                <span class="tab-icon">📖</span>
+                <span class="tab-label">复习本</span>
+            </div>
+            <div class="tab-item active">
+                <span class="tab-icon">📊</span>
+                <span class="tab-label">统计</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
