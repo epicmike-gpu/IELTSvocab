@@ -225,7 +225,7 @@ export default function StatsScreen() {
                     <Pressable
                       onPress={handlePurchase}
                       disabled={purchasing}
-                      className="flex-1 bg-accent-mint rounded-2xl py-3 items-center"
+                      className="flex-1 bg-[#6C63FF] rounded-2xl py-3 items-center"
                       style={{ opacity: purchasing ? 0.6 : 1 }}
                     >
                       {purchasing ? (
