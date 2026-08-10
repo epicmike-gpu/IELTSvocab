@@ -38,6 +38,8 @@ interface Word {
   example: string;
   exampleCn: string;
   difficulty: 1 | 2 | 3;
+  wordListId?: string;
+  root?: string;
 }
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
@@ -82,13 +84,28 @@ function WordCard({
   const translateY = useSharedValue(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const flipProgress = useSharedValue(0);
+  const [enrichedWord, setEnrichedWord] = useState<Word>(word);
+  const [isEnriching, setIsEnriching] = useState(false);
 
   useEffect(() => {
-    translateX.value = 0;
-    translateY.value = 0;
+    setEnrichedWord(word);
     setIsFlipped(false);
     flipProgress.value = 0;
-  }, [word.id]);
+
+    if (isTop && (!word.phonetic || !word.example)) {
+      setIsEnriching(true);
+      const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
+      fetch(`${BASE_URL}/api/v1/words/${word.id}/enrich?wordListId=${word.wordListId || ''}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.word) {
+            setEnrichedWord(prev => ({ ...prev, ...data.word }));
+          }
+        })
+        .catch(() => {})
+        .finally(() => setIsEnriching(false));
+    }
+  }, [word.id, isTop]);
 
   const panGesture = Gesture.Pan()
     .enabled(isTop && !isFlipped)
@@ -183,7 +200,7 @@ function WordCard({
             >
               {word.word}
             </Text>
-            <Text style={styles.phoneticText}>{word.phonetic}</Text>
+            <Text style={styles.phoneticText}>{enrichedWord.phonetic || (isTop && isEnriching ? '加载音标...' : word.phonetic)}</Text>
             <Text style={styles.posText}>{word.pos}</Text>
             {isTop && (
               <Pressable
@@ -217,7 +234,7 @@ function WordCard({
         <Animated.View style={[styles.cardFace, styles.cardBack, backOpacity]}>
           <View style={styles.backContent}>
             <Text style={styles.backWord}>{word.word}</Text>
-            <Text style={styles.backPhonetic}>{word.phonetic}</Text>
+            <Text style={styles.backPhonetic}>{enrichedWord.phonetic || word.phonetic}</Text>
             <Pressable
               onPress={() => speakWord(word.word)}
               style={styles.speakerBtn}
@@ -227,10 +244,10 @@ function WordCard({
             </Pressable>
             <View style={styles.divider} />
             <Text style={styles.backPos}>{word.pos}</Text>
-            <Text style={styles.backMeaning}>{word.meaning}</Text>
+            <Text style={styles.backMeaning}>{enrichedWord.meaning || word.meaning}</Text>
             <View style={styles.exampleBox}>
-              <Text style={styles.exampleText}>{word.example}</Text>
-              <Text style={styles.exampleCnText}>{word.exampleCn}</Text>
+              <Text style={styles.exampleText}>{enrichedWord.example || word.example || (isTop && isEnriching ? '正在生成例句...' : '')}</Text>
+              <Text style={styles.exampleCnText}>{enrichedWord.exampleCn || word.exampleCn}</Text>
             </View>
           </View>
         </Animated.View>
@@ -265,6 +282,29 @@ export default function LearnScreen() {
       setWords(data.words);
       setCurrentIndex(0);
       setAllDone(data.words.length === 0);
+      
+      // 按需生成缺失的音标和例句
+      const needGen = data.words.filter((w: Word) => !w.phonetic || !w.example).slice(0, 3);
+      needGen.forEach((w: Word) => {
+        fetch(`${BASE_URL}/api/v1/words/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            wordId: w.id,
+            listId: currentListId,
+            word: w.word,
+          }),
+        }).then(async (r) => {
+          if (r.ok) {
+            const enriched = await r.json();
+            setWords(prev => prev.map(pw =>
+              pw.id === w.id
+                ? { ...pw, phonetic: enriched.phonetic || pw.phonetic, example: enriched.example || pw.example, exampleCn: enriched.exampleCn || pw.exampleCn, meaning: enriched.meaning || pw.meaning }
+                : pw
+            ));
+          }
+        }).catch(() => {});
+      });
     } catch {
       setAllDone(true);
     } finally {

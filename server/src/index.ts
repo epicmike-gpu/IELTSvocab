@@ -55,6 +55,8 @@ function loadWordListFromFile(filePath: string): WordList | null {
 // Load IELTS 8000 word lists
 const ieltsSequential = loadWordListFromFile(path.join(__dirname, '../data/ielts_sequential.json'));
 const ieltsRandom = loadWordListFromFile(path.join(__dirname, '../data/ielts_random.json'));
+const ieltsFrequency = loadWordListFromFile(path.join(__dirname, '../data/ielts_frequency.json'));
+const ieltsRoot = loadWordListFromFile(path.join(__dirname, '../data/ielts_root.json'));
 
 // ── Word Lists Data ──────────────────────────────────────────────
 
@@ -244,6 +246,12 @@ if (ieltsSequential) {
 }
 if (ieltsRandom) {
   WORD_LISTS.push(ieltsRandom);
+}
+if (ieltsFrequency) {
+  WORD_LISTS.push(ieltsFrequency);
+}
+if (ieltsRoot) {
+  WORD_LISTS.push(ieltsRoot);
 }
 
 // ── In-memory state (per list) ───────────────────────────────────
@@ -767,6 +775,72 @@ app.delete('/api/v1/learning/reset', async (req, res) => {
   } catch (error) {
     console.error('Reset error:', error);
     res.status(500).json({ error: 'Failed to reset learning records' });
+  }
+});
+
+// 按需生成单词的音标、例句和翻译
+app.post('/api/v1/words/generate', async (req, res) => {
+  try {
+    const { word, listId, wordId } = req.body;
+    if (!word) {
+      return res.json({ error: 'word is required' });
+    }
+
+    // Find the word in the word list
+    const list = WORD_LISTS.find(l => l.id === listId);
+    if (!list) {
+      return res.json({ error: 'list not found' });
+    }
+
+    // Find word in data
+    const wordData = list.words?.find((w: any) => w.id === wordId || w.word === word);
+    if (!wordData) {
+      return res.json({ error: 'word not found' });
+    }
+
+    // If already has phonetic and example, return directly
+    if (wordData.phonetic && wordData.example) {
+      return res.json({
+        phonetic: wordData.phonetic,
+        example: wordData.example,
+        exampleCn: wordData.exampleCn || '',
+        meaning: wordData.meaning || '',
+      });
+    }
+
+    // Generate using LLM
+    const { enrichWord } = await import('./llm');
+    const result = await enrichWord(word);
+
+    if (result) {
+      // Update in-memory data
+      wordData.phonetic = result.phonetic || wordData.phonetic;
+      wordData.example = result.example || wordData.example;
+      wordData.exampleCn = result.exampleCn || wordData.exampleCn;
+      if (result.meaning && !wordData.meaning) {
+        wordData.meaning = result.meaning;
+      }
+
+      // Save to file (async, don't block response)
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, `../data/${listId}.json`);
+      fs.writeFile(filePath, JSON.stringify(list, null, 2), (err: any) => {
+        if (err) console.error(`Error saving ${listId}:`, err);
+      });
+
+      return res.json({
+        phonetic: wordData.phonetic,
+        example: wordData.example,
+        exampleCn: wordData.exampleCn || '',
+        meaning: wordData.meaning || '',
+      });
+    }
+
+    return res.json({ error: 'generation failed' });
+  } catch (error) {
+    console.error('Generate word details error:', error);
+    return res.json({ error: 'internal error' });
   }
 });
 
