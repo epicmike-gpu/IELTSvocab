@@ -19,6 +19,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "supportsTablet": false,
       "bundleIdentifier": "com.mikelu.ieltsvocab",
       "buildNumber": "1.0.0",
+      "privacy": "https://epicmike-gpu.github.io/IELTSvocab/",
       "infoPlist": {
         "NSUserTrackingUsageDescription": "用于个性化学习体验"
       }
