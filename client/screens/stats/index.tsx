@@ -77,6 +77,36 @@ export default function StatsScreen() {
   const unknown = currentProgress.unknown || 0;
   const accuracy = learned > 0 ? Math.round((known / learned) * 100) : 0;
   const progressPercent = totalWords > 0 ? Math.round((learned / totalWords) * 100) : 0;
+  const isCompleted = totalWords > 0 && learned >= totalWords;
+
+  const handleResetProgress = (listId: string) => {
+    Alert.alert(
+      '重新学习',
+      '确定要清空该词表的学习记录吗？所有进度将归零。',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '确定',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await fetch(`${BASE_URL}/api/v1/learning/reset?listId=${listId}`, {
+                method: 'DELETE',
+              });
+              if (res.ok) {
+                Alert.alert('已重置', '学习记录已清空，可以重新开始');
+                fetchProgress();
+              } else {
+                Alert.alert('失败', '重置失败，请稍后重试');
+              }
+            } catch {
+              Alert.alert('失败', '网络错误，请稍后重试');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <Screen>
@@ -109,6 +139,8 @@ export default function StatsScreen() {
                     isSelected={material.id === currentListId}
                     isUnlocked={unlocked}
                     onSelect={() => handleSelectList(material.id)}
+                    onReset={() => handleResetProgress(material.id)}
+                    isCompleted={progress[material.id]?.total === list.totalWords && list.totalWords > 0}
                   />
                 );
               })}
@@ -288,45 +320,67 @@ export default function StatsScreen() {
   );
 }
 
-function ListCard({ list, material, progress, isSelected, isUnlocked, onSelect }: { 
+function ListCard({ list, material, progress, isSelected, isUnlocked, onSelect, onReset, isCompleted }: { 
   list: any;
   material: any;
   progress?: ProgressData;
   isSelected: boolean;
   isUnlocked: boolean;
   onSelect: () => void;
+  onReset: () => void;
+  isCompleted: boolean;
 }) {
   const learned = progress?.total || 0;
   const total = list.totalWords || 0;
   const percent = total > 0 ? Math.round((learned / total) * 100) : 0;
 
   return (
-    <Pressable
-      onPress={onSelect}
-      className={`px-4 py-3 rounded-2xl min-w-[140px] ${isSelected ? 'bg-accent-mint/15 border-2 border-accent-mint' : 'bg-white border border-gray-200'}`}
-      style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 }}
-    >
-      <View className="flex-row items-center gap-2 mb-1">
-        <FontAwesome6 name={list.icon as any} size={14} color={list.color} />
-        <Text className="text-foreground font-semibold text-sm" numberOfLines={1}>{list.name}</Text>
-      </View>
-      <Text className="text-muted text-xs">{total} 词</Text>
-      <View className="mt-2 h-1.5 bg-background rounded-full overflow-hidden">
-        <View className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: '#87CEEB' }} />
-      </View>
-      <Text className="text-xs text-muted mt-1">{percent}%</Text>
-      
-      {!isUnlocked && (
-        <View className="absolute top-2 right-2 bg-black/60 rounded-full p-1">
-          <FontAwesome6 name="lock" size={12} color="#fff" />
+    <View className="mr-3">
+      <Pressable
+        onPress={onSelect}
+        className={`px-4 py-3 rounded-2xl min-w-[140px] ${isSelected ? 'bg-accent-mint/15 border-2 border-accent-mint' : 'bg-white border border-gray-200'}`}
+        style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 }}
+      >
+        <View className="flex-row items-center gap-2 mb-1">
+          <FontAwesome6 name={list.icon as any} size={14} color={list.color} />
+          <Text className="text-foreground font-semibold text-sm" numberOfLines={1}>{list.name}</Text>
+          {isCompleted && (
+            <View className="bg-green-100 rounded-full px-2 py-0.5">
+              <Text className="text-green-700 text-[10px] font-bold">已完成</Text>
+            </View>
+          )}
         </View>
-      )}
-      {isSelected && isUnlocked && (
-        <View className="absolute top-2 right-2">
-          <FontAwesome6 name="check-circle" size={16} color="#4ECDC4" />
+        <Text className="text-muted text-xs">{total} 词</Text>
+        <View className="mt-2 h-1.5 bg-background rounded-full overflow-hidden">
+          <View className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: isCompleted ? '#4ECDC4' : '#87CEEB' }} />
         </View>
+        <Text className="text-xs text-muted mt-1">{percent}%</Text>
+        
+        {!isUnlocked && (
+          <View className="absolute top-2 right-2 bg-black/60 rounded-full p-1">
+            <FontAwesome6 name="lock" size={12} color="#fff" />
+          </View>
+        )}
+        {isSelected && isUnlocked && !isCompleted && (
+          <View className="absolute top-2 right-2">
+            <FontAwesome6 name="check-circle" size={16} color="#4ECDC4" />
+          </View>
+        )}
+        {isCompleted && (
+          <View className="absolute top-2 right-2">
+            <FontAwesome6 name="trophy" size={16} color="#4ECDC4" />
+          </View>
+        )}
+      </Pressable>
+      {isCompleted && isSelected && isUnlocked && (
+        <Pressable
+          onPress={onReset}
+          className="mt-2 bg-orange-50 rounded-xl py-2 items-center border border-orange-200"
+        >
+          <Text className="text-orange-600 text-xs font-semibold">重新学习</Text>
+        </Pressable>
       )}
-    </Pressable>
+    </View>
   );
 }
 

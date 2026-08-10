@@ -354,9 +354,9 @@ export default function LearnScreen() {
             <View style={styles.doneIconWrap}>
               <FontAwesome6 name="trophy" size={48} color="#6C63FF" />
             </View>
-            <Text style={styles.doneTitle}>本轮学习完成!</Text>
+            <Text style={styles.doneTitle}>恭喜！全部学完 🎉</Text>
             <Text style={styles.doneSubtitle}>
-              本轮已学习 {sessionCount} 个单词
+              本轮已学习 {sessionCount} 个单词，全部完成！
             </Text>
             <Pressable onPress={handleLoadMore} style={styles.doneBtnWrap}>
               <LinearGradient
@@ -367,6 +367,19 @@ export default function LearnScreen() {
               >
                 <Text style={styles.doneBtnText}>继续学习</Text>
               </LinearGradient>
+            </Pressable>
+            <Pressable onPress={async () => {
+              try {
+                const baseUrl = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
+                await fetch(`${baseUrl}/api/v1/learning/reset?listId=${currentListId}`, {
+                  method: 'DELETE',
+                });
+                handleLoadMore();
+              } catch (e) {
+                console.error('Reset failed:', e);
+              }
+            }} style={{ marginTop: 12, padding: 8 }}>
+              <Text style={{ fontSize: 14, color: '#B2BEC3' }}>重新学习</Text>
             </Pressable>
           </View>
         </View>

@@ -743,6 +743,33 @@ app.get('/api/v1/learning/review', async (req, res) => {
   }
 });
 
+// 重置词表学习记录
+app.delete('/api/v1/learning/reset', async (req, res) => {
+  const userId = 'anonymous-user';
+  const { listId } = req.query;
+
+  if (!listId) {
+    return res.status(400).json({ error: 'listId is required' });
+  }
+
+  try {
+    const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('learning_records')
+      .delete()
+      .eq('user_id', userId)
+      .eq('list_id', listId as string);
+
+    if (error) throw error;
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Reset error:', error);
+    res.status(500).json({ error: 'Failed to reset learning records' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);
 });
