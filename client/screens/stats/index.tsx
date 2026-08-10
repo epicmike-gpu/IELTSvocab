@@ -16,7 +16,7 @@ interface ProgressData {
 
 export default function StatsScreen() {
   const { currentListId, lists, setListId, refreshLists } = useWordList();
-  const { isMaterialUnlocked, purchaseMaterial, getMaterial } = usePurchase();
+  const { isMaterialUnlocked, purchaseMaterial, getMaterial, resetPurchase } = usePurchase();
   const [progress, setProgress] = useState<Record<string, ProgressData>>({});
   const [loading, setLoading] = useState(true);
   const [purchaseModal, setPurchaseModal] = useState<{ visible: boolean; materialId: string | null }>({ visible: false, materialId: null });
@@ -235,6 +235,18 @@ export default function StatsScreen() {
                       )}
                     </Pressable>
                   </View>
+
+                  {isMaterialUnlocked(purchaseModal.materialId!) && (
+                    <Pressable
+                      onPress={() => {
+                        resetPurchase(purchaseModal.materialId!);
+                        setPurchaseModal({ visible: false, materialId: null });
+                      }}
+                      className="mt-3 items-center"
+                    >
+                      <Text className="text-gray-400 text-xs">重新锁定（仅供截图测试）</Text>
+                    </Pressable>
+                  )}
                 </>
               );
             })()}
