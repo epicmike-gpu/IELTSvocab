@@ -786,8 +786,13 @@ app.post('/api/v1/words/generate', async (req, res) => {
       return res.json({ error: 'word is required' });
     }
 
-    // Find the word in the word list
-    const list = WORD_LISTS.find(l => l.id === listId);
+    // Find the word in the word list (including IELTS lists)
+    let list = WORD_LISTS.find(l => l.id === listId);
+    if (!list) {
+      // Check IELTS lists
+      const ieltsLists = [ieltsSequential, ieltsRandom, ieltsFrequency, ieltsRoot].filter(Boolean);
+      list = ieltsLists.find(l => l.id === listId);
+    }
     if (!list) {
       return res.json({ error: 'list not found' });
     }
