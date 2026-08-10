@@ -41,7 +41,12 @@ export default function StatsScreen() {
   }, [fetchProgress, refreshLists]));
 
   const handleSelectList = (listId: string) => {
+    const material = getMaterial(listId);
     if (!isMaterialUnlocked(listId)) {
+      setPurchaseModal({ visible: true, materialId: listId });
+      return;
+    }
+    if (material && material.price > 0) {
       setPurchaseModal({ visible: true, materialId: listId });
       return;
     }
@@ -187,12 +192,13 @@ export default function StatsScreen() {
             {purchaseModal.materialId && (() => {
               const material = getMaterial(purchaseModal.materialId);
               if (!material) return null;
+              const alreadyUnlocked = isMaterialUnlocked(purchaseModal.materialId);
               return (
                 <>
                   <View className="items-center mb-4">
-                    <FontAwesome6 name="crown" size={40} color="#FFB347" />
+                    <FontAwesome6 name={alreadyUnlocked ? "circle-check" : "crown"} size={40} color={alreadyUnlocked ? "#4ECDC4" : "#FFB347"} />
                     <Text className="text-foreground text-xl font-bold mt-3">{material.name}</Text>
-                    <Text className="text-muted text-sm mt-1">解锁完整词表</Text>
+                    <Text className="text-muted text-sm mt-1">{alreadyUnlocked ? '已解锁' : '解锁完整词表'}</Text>
                   </View>
 
                   <View className="bg-gray-50 rounded-2xl p-4 mb-4 border border-gray-100">
@@ -202,50 +208,75 @@ export default function StatsScreen() {
                     </View>
                     <View className="flex-row justify-between items-center mt-2">
                       <Text className="text-muted text-sm">例句发音</Text>
-                      <Text className="text-foreground font-semibold">✓</Text>
+                      <Text className="text-foreground font-semibold">支持</Text>
                     </View>
                     <View className="flex-row justify-between items-center mt-2">
                       <Text className="text-muted text-sm">学习记录</Text>
-                      <Text className="text-foreground font-semibold">✓</Text>
+                      <Text className="text-foreground font-semibold">云端存储</Text>
                     </View>
                   </View>
 
-                  <View className="items-center mb-4">
-                    <Text className="text-muted text-sm">价格</Text>
-                    <Text className="text-foreground text-3xl font-bold">¥{material.price}</Text>
-                  </View>
-
-                  <View className="flex-row gap-3">
-                    <Pressable
-                      onPress={() => setPurchaseModal({ visible: false, materialId: null })}
-                      className="flex-1 bg-gray-100 rounded-2xl py-3 items-center"
-                    >
-                      <Text className="text-muted font-semibold">取消</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={handlePurchase}
-                      disabled={purchasing}
-                      className="flex-1 bg-[#6C63FF] rounded-2xl py-3 items-center"
-                      style={{ opacity: purchasing ? 0.6 : 1 }}
-                    >
-                      {purchasing ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Text className="text-white font-semibold">立即购买</Text>
-                      )}
-                    </Pressable>
-                  </View>
-
-                  {isMaterialUnlocked(purchaseModal.materialId!) && (
-                    <Pressable
-                      onPress={() => {
-                        resetPurchase(purchaseModal.materialId!);
-                        setPurchaseModal({ visible: false, materialId: null });
-                      }}
-                      className="mt-3 items-center"
-                    >
-                      <Text className="text-gray-400 text-xs">重新锁定（仅供截图测试）</Text>
-                    </Pressable>
+                  {alreadyUnlocked ? (
+                    <>
+                      <View className="bg-green-50 rounded-2xl p-4 mb-4 border border-green-100 items-center">
+                        <FontAwesome6 name="check" size={24} color="#4ECDC4" />
+                        <Text className="text-green-700 font-semibold mt-2">此材料已解锁</Text>
+                      </View>
+                      <View className="flex-row gap-3">
+                        <Pressable
+                          onPress={() => {
+                            setListId(purchaseModal.materialId!);
+                            setPurchaseModal({ visible: false, materialId: null });
+                          }}
+                          className="flex-1 bg-[#6C63FF] rounded-2xl py-3 items-center"
+                        >
+                          <Text className="text-white font-semibold">开始学习</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setPurchaseModal({ visible: false, materialId: null })}
+                          className="flex-1 bg-gray-100 rounded-2xl py-3 items-center"
+                        >
+                          <Text className="text-muted font-semibold">关闭</Text>
+                        </Pressable>
+                      </View>
+                      <Pressable
+                        onPress={() => {
+                          resetPurchase(purchaseModal.materialId!);
+                          setPurchaseModal({ visible: false, materialId: null });
+                          Alert.alert('已重置', '材料已重新锁定');
+                        }}
+                        className="mt-3 items-center"
+                      >
+                        <Text className="text-gray-400 text-xs">重新锁定（仅供截图测试）</Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <>
+                      <View className="items-center mb-4">
+                        <Text className="text-muted text-sm">价格</Text>
+                        <Text className="text-foreground text-3xl font-bold">¥{material.price}</Text>
+                      </View>
+                      <View className="flex-row gap-3">
+                        <Pressable
+                          onPress={() => setPurchaseModal({ visible: false, materialId: null })}
+                          className="flex-1 bg-gray-100 rounded-2xl py-3 items-center"
+                        >
+                          <Text className="text-muted font-semibold">取消</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={handlePurchase}
+                          disabled={purchasing}
+                          className="flex-1 bg-[#6C63FF] rounded-2xl py-3 items-center"
+                          style={{ opacity: purchasing ? 0.6 : 1 }}
+                        >
+                          {purchasing ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Text className="text-white font-semibold">立即购买</Text>
+                          )}
+                        </Pressable>
+                      </View>
+                    </>
                   )}
                 </>
               );
