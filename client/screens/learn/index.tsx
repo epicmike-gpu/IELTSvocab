@@ -25,8 +25,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWordList } from '@/contexts/WordListContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 64;
-const CARD_HEIGHT = SCREEN_HEIGHT * 0.50;
+const CARD_WIDTH = SCREEN_WIDTH - 48;
+const CARD_HEIGHT = Math.min(SCREEN_HEIGHT * 0.55, 520);
 const SWIPE_THRESHOLD = 120;
 
 interface Word {
