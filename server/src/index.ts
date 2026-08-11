@@ -863,6 +863,12 @@ app.post('/api/v1/words/generate', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server listening at http://localhost:${port}/`);
-});
+// Export for Vercel serverless
+export default app;
+
+// Start server directly when not on Vercel
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`Server listening at http://localhost:${port}/`);
+  });
+}

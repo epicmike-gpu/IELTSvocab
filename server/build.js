@@ -1,5 +1,6 @@
 import * as esbuild from 'esbuild';
 import { createRequire } from 'module';
+import { cpSync } from 'fs';
 
 const require = createRequire(import.meta.url);
 const pkg = require('./package.json');
@@ -14,7 +15,9 @@ try {
     outdir: 'dist',
     external: externalList,
   });
-  console.log('⚡ Build complete!');
+  // Copy data files to dist for Vercel deployment
+  cpSync('data', 'dist/data', { recursive: true });
+  console.log(' Build complete!');
 } catch (e) {
   console.error(e);
   process.exit(1);
