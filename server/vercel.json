@@ -1,5 +1,3 @@
 {
-  "version": 2,
-  "outputDirectory": "dist",
-  "rootDirectory": "server"
+  "version": 2
 }
