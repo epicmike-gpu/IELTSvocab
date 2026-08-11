@@ -19,7 +19,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "supportsTablet": false,
       "bundleIdentifier": "com.mikelu.ieltsvocab",
       "buildNumber": "1.0.0",
-      "privacy": "https://epicmike-gpu.github.io/IELTSvocab/",
+      "privacy": "https://ielt-svocab.vercel.app/",
       "infoPlist": {
         "NSUserTrackingUsageDescription": "用于个性化学习体验",
         "ITSAppUsesNonExemptEncryption": false
