@@ -342,8 +342,14 @@ app.get('/api/v1/words/batch', async (req, res) => {
   const available = wordList.words.filter(w => !learnedWordIds.has(w.id));
   const batch = available.slice(offset, offset + limit);
 
+  // 为每个单词添加 wordListId 字段，以便前端按需生成时能正确传递 listId
+  const wordsWithListId = batch.map(w => ({
+    ...w,
+    wordListId: listId,
+  }));
+
   res.json({
-    words: batch,
+    words: wordsWithListId,
     total: available.length,
     offset,
     limit,
