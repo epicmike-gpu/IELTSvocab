@@ -842,7 +842,7 @@ app.post('/api/v1/words/generate', async (req, res) => {
     }
 
     // Generate using LLM
-    const { enrichWord } = await import('./llm');
+    const { enrichWord } = await import('./llm.js');
     const result = await enrichWord(word);
 
     if (result) {
