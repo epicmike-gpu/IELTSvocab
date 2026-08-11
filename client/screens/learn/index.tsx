@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -84,43 +84,10 @@ function WordCard({
   const translateY = useSharedValue(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const flipProgress = useSharedValue(0);
-  const [enrichedWord, setEnrichedWord] = useState<Word>(word);
-  const [isEnriching, setIsEnriching] = useState(false);
-
   useEffect(() => {
-    setEnrichedWord(word);
     setIsFlipped(false);
     flipProgress.value = 0;
-
-    // On-demand enrichment: generate phonetic and example if missing
-    if (isTop && (!word.phonetic || !word.example)) {
-      setIsEnriching(true);
-      const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
-      fetch(`${BASE_URL}/api/v1/words/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          word: word.word,
-          listId: word.wordListId || 'core',
-          wordId: word.id,
-        }),
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.phonetic || data.example) {
-            setEnrichedWord(prev => ({
-              ...prev,
-              phonetic: data.phonetic || prev.phonetic,
-              example: data.example || prev.example,
-              exampleCn: data.exampleCn || prev.exampleCn,
-              meaning: data.meaning || prev.meaning,
-            }));
-          }
-        })
-        .catch(() => {})
-        .finally(() => setIsEnriching(false));
-    }
-  }, [word.id, isTop]);
+  }, [word.id]);
 
   const panGesture = Gesture.Pan()
     .enabled(isTop && !isFlipped)
@@ -215,7 +182,7 @@ function WordCard({
             >
               {word.word}
             </Text>
-            <Text style={styles.phoneticText}>{enrichedWord.phonetic || (isTop && isEnriching ? '加载音标...' : word.phonetic)}</Text>
+            <Text style={styles.phoneticText}>{word.phonetic || (isTop ? '加载音标...' : '')}</Text>
             <Text style={styles.posText}>{word.pos}</Text>
             {isTop && (
               <Pressable
@@ -249,7 +216,7 @@ function WordCard({
         <Animated.View style={[styles.cardFace, styles.cardBack, backOpacity]}>
           <View style={styles.backContent}>
             <Text style={styles.backWord}>{word.word}</Text>
-            <Text style={styles.backPhonetic}>{enrichedWord.phonetic || word.phonetic}</Text>
+            <Text style={styles.backPhonetic}>{word.phonetic}</Text>
             <Pressable
               onPress={() => speakWord(word.word)}
               style={styles.speakerBtn}
@@ -259,10 +226,10 @@ function WordCard({
             </Pressable>
             <View style={styles.divider} />
             <Text style={styles.backPos}>{word.pos}</Text>
-            <Text style={styles.backMeaning}>{enrichedWord.meaning || word.meaning}</Text>
+            <Text style={styles.backMeaning}>{word.meaning}</Text>
             <View style={styles.exampleBox}>
-              <Text style={styles.exampleText}>{enrichedWord.example || word.example || (isTop && isEnriching ? '正在生成例句...' : '')}</Text>
-              <Text style={styles.exampleCnText}>{enrichedWord.exampleCn || word.exampleCn}</Text>
+              <Text style={styles.exampleText}>{word.example || (isTop ? '正在生成例句...' : '')}</Text>
+              <Text style={styles.exampleCnText}>{word.exampleCn}</Text>
             </View>
           </View>
         </Animated.View>
@@ -288,38 +255,17 @@ export default function LearnScreen() {
   const [sessionCount, setSessionCount] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const insets = useSafeAreaInsets();
+  const generatingRef = useRef<Set<number>>(new Set());
 
   const fetchWords = useCallback(async () => {
     setLoading(true);
+    generatingRef.current.clear();
     try {
       const res = await fetch(`${BASE_URL}/api/v1/words/batch?listId=${currentListId}&offset=0&limit=10`);
       const data = await res.json();
       setWords(data.words);
       setCurrentIndex(0);
       setAllDone(data.words.length === 0);
-      
-      // 按需生成缺失的音标和例句
-      const needGen = data.words.filter((w: Word) => !w.phonetic || !w.example).slice(0, 3);
-      needGen.forEach((w: Word) => {
-        fetch(`${BASE_URL}/api/v1/words/generate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            wordId: w.id,
-            listId: currentListId,
-            word: w.word,
-          }),
-        }).then(async (r) => {
-          if (r.ok) {
-            const enriched = await r.json();
-            setWords(prev => prev.map(pw =>
-              pw.id === w.id
-                ? { ...pw, phonetic: enriched.phonetic || pw.phonetic, example: enriched.example || pw.example, exampleCn: enriched.exampleCn || pw.exampleCn, meaning: enriched.meaning || pw.meaning }
-                : pw
-            ));
-          }
-        }).catch(() => {});
-      });
     } catch {
       setAllDone(true);
     } finally {
@@ -330,6 +276,58 @@ export default function LearnScreen() {
   useEffect(() => {
     fetchWords();
   }, [fetchWords]);
+
+  // Pre-generate phonetics/examples for upcoming cards (current + 5 ahead)
+  useEffect(() => {
+    if (words.length === 0) return;
+
+    const PRELOAD_AHEAD = 6;
+    const MAX_CONCURRENT = 3;
+    const upcoming = words.slice(currentIndex, currentIndex + PRELOAD_AHEAD);
+    const needGen = upcoming.filter(
+      w => (!w.phonetic || !w.example) && !generatingRef.current.has(w.id)
+    );
+    if (needGen.length === 0) return;
+
+    needGen.forEach(w => generatingRef.current.add(w.id));
+
+    const queue = [...needGen];
+    const workers = Array.from({ length: Math.min(MAX_CONCURRENT, queue.length) }, async () => {
+      while (queue.length > 0) {
+        const w = queue.shift()!;
+        try {
+          const res = await fetch(`${BASE_URL}/api/v1/words/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wordId: w.id, listId: currentListId, word: w.word }),
+          });
+          if (res.ok) {
+            const enriched = await res.json();
+            if (enriched.phonetic || enriched.example) {
+              setWords(prev =>
+                prev.map(pw =>
+                  pw.id === w.id
+                    ? {
+                        ...pw,
+                        phonetic: enriched.phonetic || pw.phonetic,
+                        example: enriched.example || pw.example,
+                        exampleCn: enriched.exampleCn || pw.exampleCn,
+                        meaning: enriched.meaning || pw.meaning,
+                      }
+                    : pw
+                )
+              );
+            }
+          }
+        } catch {
+          // Will retry on next index change
+        } finally {
+          generatingRef.current.delete(w.id);
+        }
+      }
+    });
+    Promise.all(workers);
+  }, [currentIndex, words, currentListId]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < words.length - 1) {

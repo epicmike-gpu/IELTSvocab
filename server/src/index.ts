@@ -784,6 +784,19 @@ app.delete('/api/v1/learning/reset', async (req, res) => {
   }
 });
 
+// Debounced save: coalesce concurrent writes to the same file
+const saveTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+function debouncedSave(listId: string, listData: any) {
+  if (saveTimers[listId]) clearTimeout(saveTimers[listId]);
+  saveTimers[listId] = setTimeout(() => {
+    const filePath = path.join(__dirname, `../data/${listId}.json`);
+    fs.writeFile(filePath, JSON.stringify(listData, null, 2), (err) => {
+      if (err) console.error(`Error saving ${listId}:`, err);
+    });
+    delete saveTimers[listId];
+  }, 2000);
+}
+
 // 按需生成单词的音标、例句和翻译
 app.post('/api/v1/words/generate', async (req, res) => {
   try {
@@ -796,8 +809,8 @@ app.post('/api/v1/words/generate', async (req, res) => {
     let list = WORD_LISTS.find(l => l.id === listId);
     if (!list) {
       // Check IELTS lists
-      const ieltsLists = [ieltsSequential, ieltsRandom, ieltsFrequency, ieltsRoot].filter(Boolean);
-      list = ieltsLists.find(l => l.id === listId);
+      const ieltsLists = [ieltsSequential, ieltsRandom, ieltsFrequency, ieltsRoot].filter(Boolean) as typeof WORD_LISTS;
+      list = ieltsLists.find(l => l!.id === listId);
     }
     if (!list) {
       return res.json({ error: 'list not found' });
@@ -832,13 +845,8 @@ app.post('/api/v1/words/generate', async (req, res) => {
         wordData.meaning = result.meaning;
       }
 
-      // Save to file (async, don't block response)
-      const fs = require('fs');
-      const path = require('path');
-      const filePath = path.join(__dirname, `../data/${listId}.json`);
-      fs.writeFile(filePath, JSON.stringify(list, null, 2), (err: any) => {
-        if (err) console.error(`Error saving ${listId}:`, err);
-      });
+      // Save to file (debounced, coalesces concurrent writes)
+      debouncedSave(listId, list);
 
       return res.json({
         phonetic: wordData.phonetic,
