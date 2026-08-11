@@ -24,11 +24,9 @@ import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWordList } from '@/contexts/WordListContext';
 
-// iPhone XS Max / 11 Pro Max: 414×896 points (1242×2688 physical @3x)
-const SCREEN_WIDTH = 414;
-const SCREEN_HEIGHT = 896;
-const CARD_WIDTH = SCREEN_WIDTH - 48;
-const CARD_HEIGHT = 520;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const CARD_WIDTH = SCREEN_WIDTH - 64;
+const CARD_HEIGHT = SCREEN_HEIGHT * 0.50;
 const SWIPE_THRESHOLD = 120;
 
 interface Word {
