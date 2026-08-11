@@ -5,7 +5,7 @@
   ],
   "functions": {
     "api/index.ts": {
-      "includeFiles": "data/**",
+      "includeFiles": "server/data/**",
       "maxDuration": 60
     }
   }

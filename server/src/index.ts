@@ -2,10 +2,19 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Vercel serverless 下 cwd 是仓库根，本地运行时 cwd 是 server/
+function resolveDataDir(): string {
+  const candidates = [
+    path.join(process.cwd(), 'data'),
+    path.join(process.cwd(), 'server', 'data'),
+    path.join(process.cwd(), 'dist', 'data'),
+  ];
+  for (const dir of candidates) {
+    if (fs.existsSync(path.join(dir, 'ielts_sequential.json'))) return dir;
+  }
+  return candidates[0];
+}
+const DATA_DIR = resolveDataDir();
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -53,10 +62,10 @@ function loadWordListFromFile(filePath: string): WordList | null {
 }
 
 // Load IELTS 8000 word lists
-const ieltsSequential = loadWordListFromFile(path.join(__dirname, '../data/ielts_sequential.json'));
-const ieltsRandom = loadWordListFromFile(path.join(__dirname, '../data/ielts_random.json'));
-const ieltsFrequency = loadWordListFromFile(path.join(__dirname, '../data/ielts_frequency.json'));
-const ieltsRoot = loadWordListFromFile(path.join(__dirname, '../data/ielts_root.json'));
+const ieltsSequential = loadWordListFromFile(path.join(DATA_DIR, 'ielts_sequential.json'));
+const ieltsRandom = loadWordListFromFile(path.join(DATA_DIR, 'ielts_random.json'));
+const ieltsFrequency = loadWordListFromFile(path.join(DATA_DIR, 'ielts_frequency.json'));
+const ieltsRoot = loadWordListFromFile(path.join(DATA_DIR, 'ielts_root.json'));
 
 // ── Word Lists Data ──────────────────────────────────────────────
 
@@ -789,7 +798,7 @@ const saveTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 function debouncedSave(listId: string, listData: any) {
   if (saveTimers[listId]) clearTimeout(saveTimers[listId]);
   saveTimers[listId] = setTimeout(() => {
-    const filePath = path.join(__dirname, `../data/${listId}.json`);
+    const filePath = path.join(DATA_DIR, `${listId}.json`);
     fs.writeFile(filePath, JSON.stringify(listData, null, 2), (err) => {
       if (err) console.error(`Error saving ${listId}:`, err);
     });
