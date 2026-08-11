@@ -92,14 +92,29 @@ function WordCard({
     setIsFlipped(false);
     flipProgress.value = 0;
 
+    // On-demand enrichment: generate phonetic and example if missing
     if (isTop && (!word.phonetic || !word.example)) {
       setIsEnriching(true);
       const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
-      fetch(`${BASE_URL}/api/v1/words/${word.id}/enrich?wordListId=${word.wordListId || ''}`)
+      fetch(`${BASE_URL}/api/v1/words/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          word: word.word,
+          listId: word.wordListId || 'core',
+          wordId: word.id,
+        }),
+      })
         .then(res => res.json())
         .then(data => {
-          if (data.success && data.word) {
-            setEnrichedWord(prev => ({ ...prev, ...data.word }));
+          if (data.phonetic || data.example) {
+            setEnrichedWord(prev => ({
+              ...prev,
+              phonetic: data.phonetic || prev.phonetic,
+              example: data.example || prev.example,
+              exampleCn: data.exampleCn || prev.exampleCn,
+              meaning: data.meaning || prev.meaning,
+            }));
           }
         })
         .catch(() => {})
