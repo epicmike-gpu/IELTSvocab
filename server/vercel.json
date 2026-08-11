@@ -2,18 +2,6 @@
   "version": 2,
   "framework": null,
   "buildCommand": "cd .. && pnpm install && cd server && pnpm build",
-  "builds": [
-    {
-      "src": "dist/index.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "dist/index.js"
-    }
-  ],
   "env": {
     "NODE_ENV": "production"
   }
