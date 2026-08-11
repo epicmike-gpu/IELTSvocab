@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "framework": null,
+  "buildCommand": "cd .. && pnpm install && cd server && pnpm build",
   "builds": [
     {
       "src": "dist/index.js",
@@ -14,11 +16,5 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  },
-  "build": {
-    "env": {
-      "ENABLE_FILE_SYSTEM_API": "1"
-    }
-  },
-  "outputDirectory": "dist"
+  }
 }
