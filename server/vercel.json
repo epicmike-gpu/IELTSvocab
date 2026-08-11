@@ -1,8 +1,15 @@
 {
   "version": 2,
-  "framework": null,
-  "buildCommand": "cd .. && pnpm install && cd server && pnpm build",
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "builds": [
+    {
+      "src": "api/index.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["dist/**", "src/**", "node_modules/**"]
+      }
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.ts" }
+  ]
 }
