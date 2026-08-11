@@ -1,8 +1,21 @@
 # IAP 审核截图获取指南
 
+## IAP 商品清单（App Store Connect 配置）
+
+Bundle ID：`com.mikelu.ieltsvocab`，所有商品均为**非消耗型（Non-Consumable）**，价格 **¥6**。
+
+| 材料 | Reference Name（参考名称） | Product ID（产品 ID） |
+|---|---|---|
+| 雅思 8000 词 (顺序版) | 雅思8000词-顺序版 | `ielts_sequential` |
+| 雅思 8000 词 (乱序版) | 雅思8000词-乱序版 | `ielts_random` |
+| 雅思 8000 词 (词频排序版) | 雅思8000词-词频排序版 | `ielts_frequency` |
+| 雅思 8000 词 (词根归类版) | 雅思8000词-词根归类版 | `ielts_root` |
+
+> Product ID 与代码中的材料 ID（`client/contexts/PurchaseContext.tsx` 的 `MATERIALS`）保持一致，接入真实 IAP 时无需映射表。
+
 ## 需要截取的界面
 
-对于每个 IAP 商品（雅思 8000 词顺序版/乱序版），需要截取以下界面：
+对于每个 IAP 商品（雅思 8000 词顺序版/乱序版/词频排序版/词根归类版），需要截取以下界面：
 
 ### 截图 1：材料锁定状态
 - 位置：统计页面
