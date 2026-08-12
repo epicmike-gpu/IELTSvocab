@@ -43,6 +43,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           "origin": process.env.EXPO_PUBLIC_BACKEND_BASE_URL
         }
       ] : 'expo-router',
+      "expo-iap",
       [
         "expo-splash-screen",
         {

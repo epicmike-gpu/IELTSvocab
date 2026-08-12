@@ -4,7 +4,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useFocusEffect } from 'expo-router';
 import { useWordList } from '@/contexts/WordListContext';
-import { usePurchase, MATERIALS } from '@/contexts/PurchaseContext';
+import { usePurchase, MATERIALS, PurchaseCancelledError } from '@/contexts/PurchaseContext';
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
@@ -16,11 +16,12 @@ interface ProgressData {
 
 export default function StatsScreen() {
   const { currentListId, lists, setListId, refreshLists } = useWordList();
-  const { isMaterialUnlocked, purchaseMaterial, getMaterial, resetPurchase } = usePurchase();
+  const { isMaterialUnlocked, purchaseMaterial, restorePurchases, getMaterial, resetPurchase } = usePurchase();
   const [progress, setProgress] = useState<Record<string, ProgressData>>({});
   const [loading, setLoading] = useState(true);
   const [purchaseModal, setPurchaseModal] = useState<{ visible: boolean; materialId: string | null }>({ visible: false, materialId: null });
   const [purchasing, setPurchasing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
   const fetchProgress = useCallback(async () => {
     try {
@@ -63,9 +64,28 @@ export default function StatsScreen() {
       Alert.alert('购买成功', '材料已解锁，开始学习吧！');
       setListId(purchaseModal.materialId);
     } catch (error) {
-      Alert.alert('购买失败', '请稍后重试');
+      if (!(error instanceof PurchaseCancelledError)) {
+        Alert.alert('购买失败', '请稍后重试');
+      }
     } finally {
       setPurchasing(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setRestoring(true);
+    try {
+      const count = await restorePurchases();
+      if (count > 0) {
+        Alert.alert('恢复成功', `已恢复 ${count} 项已购词表`);
+        setPurchaseModal({ visible: false, materialId: null });
+      } else {
+        Alert.alert('未发现购买记录', '当前 Apple ID 没有可恢复的购买');
+      }
+    } catch {
+      Alert.alert('恢复失败', '请检查网络后重试');
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -308,6 +328,18 @@ export default function StatsScreen() {
                           )}
                         </Pressable>
                       </View>
+                      <Pressable
+                        onPress={handleRestore}
+                        disabled={restoring}
+                        className="mt-3 items-center py-1"
+                        style={{ opacity: restoring ? 0.5 : 1 }}
+                      >
+                        {restoring ? (
+                          <ActivityIndicator size="small" color="#6C63FF" />
+                        ) : (
+                          <Text className="text-[#6C63FF] text-sm">恢复购买</Text>
+                        )}
+                      </Pressable>
                     </>
                   )}
                 </>
@@ -363,7 +395,7 @@ function ListCard({ list, material, progress, isSelected, isUnlocked, onSelect, 
         )}
         {isSelected && isUnlocked && !isCompleted && (
           <View className="absolute top-2 right-2">
-            <FontAwesome6 name="check-circle" size={16} color="#4ECDC4" />
+            <FontAwesome6 name="circle-check" size={16} color="#4ECDC4" />
           </View>
         )}
         {isCompleted && (
