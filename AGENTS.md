@@ -274,14 +274,33 @@ import { Screen } from '../../../components/Screen';
 ## 后端 API
 
 所有 API 在 `server/src/index.ts`，前缀 `/api/v1`：
-- `GET /api/v1/words/batch?offset=0&limit=10` — 获取待学习单词批次
-- `GET /api/v1/words` — 获取全部单词
-- `POST /api/v1/words/:id/known` — 标记为认识
-- `POST /api/v1/words/:id/unknown` — 标记为不认识（加入复习本）
-- `GET /api/v1/review` — 获取复习本单词
-- `POST /api/v1/review/:id/known` — 复习中标记为已掌握
-- `DELETE /api/v1/review/:id` — 从复习本移除
-- `GET /api/v1/stats` — 获取学习统计
+- `GET /api/v1/health` — 健康检查
+- `GET /api/v1/word-lists` — 词库列表
+- `GET /api/v1/words/batch?listId=&offset=&limit=` — 获取单词批次
+- `POST /api/v1/words/generate` — 按需生成音标例句（仅 Coze 环境可用，见下）
+- `GET /api/v1/learning/progress` — 学习进度统计（Supabase learning_records 表）
+- `POST /api/v1/learning/record` — 记录认识/不认识
+- `GET /api/v1/learning/review?listId=` — 复习本
+- `DELETE /api/v1/learning/reset?listId=` — 重置进度
+
+## 生产部署（Vercel + Supabase）
+
+- 后端托管在 Vercel：`https://ielt-svocab.vercel.app`，项目 Root Directory = **仓库根目录**（Vercel 只认根目录的 `vercel.json` 和 `api/`，`server/` 下的同名文件无效）
+- 根 `api/index.ts` 是 serverless 入口（含错误捕获包装）；根 `vercel.json` 把 `/api/*` rewrite 到函数，`includeFiles` 打包 `server/data/**` 词库 JSON
+- **Vercel 逐文件转译为 ESM 且不打包**：server 代码里相对导入必须带 `.js` 扩展名，否则线上 ERR_MODULE_NOT_FOUND
+- 静态文件在 `public/`（隐私政策页，App Store 审核用）；Vercel 控制台 Build/Output/Install 三个 Override 必须保持关闭
+- Supabase（用户自建项目）：环境变量 `COZE_SUPABASE_URL` / `COZE_SUPABASE_ANON_KEY` 配在 Vercel；`learning_records` 表无外键、未开 RLS（匿名固定用户 anonymous-user）
+- 词库数据已全量静态化：7,956 词的音标/例句全部预生成在 `server/data/*.json`（脚本 `server/scripts/batch-enrich.ts`，用 coze-coding-dev-sdk 在 Coze 环境跑；该 SDK 在 Vercel 不可用）
+- serverless 下 `fs.writeFile` 写入是临时的，不要在 Vercel 上依赖运行时改 JSON
+- 客户端生产后端地址由 `client/eas.json` 的 production profile 注入（`EXPO_PUBLIC_BACKEND_BASE_URL`）
+
+## Apple IAP（已接入真实内购）
+
+- `client/contexts/PurchaseContext.tsx`：iOS 用 expo-iap（StoreKit 2），web 预览保留模拟购买；expo-iap 无 web 实现，**必须动态 import 且只在 Platform.OS === 'ios' 时调用**
+- expo-iap 的 requestPurchase 是事件型 API：结果走 purchaseUpdatedListener / purchaseErrorListener，context 里用 pendingRef Map 桥接成 Promise
+- 4 个非消耗型商品（¥6）：ielts_sequential / ielts_random / ielts_frequency / ielts_root，已在 App Store Connect 创建
+- 购买态持久化在 AsyncStorage（STORAGE_KEY=purchased_materials）；恢复购买走 getAvailablePurchases
+- **IAP 无法在 web 预览测试**，必须 EAS Build 出真机包 + 沙盒测试账号验证
 
 ## 设计风格
 
