@@ -108,3 +108,4 @@ node-compile-cache/
 # Apple ASC API Key
 AuthKey_*.p8
 credentials.json
+client/credentials/

@@ -8,6 +8,17 @@
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_BACKEND_BASE_URL": "https://ielt-svocab.vercel.app"
+      },
+      "credentialsSource": "local"
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6799824519",
+        "ascApiKeyPath": "./AuthKey_QG9DS2MQDM.p8",
+        "ascApiKeyId": "QG9DS2MQDM",
+        "ascApiKeyIssuerId": "7ea9a762-5e99-4381-a843-28ecb68fc77f"
       }
     }
   }
