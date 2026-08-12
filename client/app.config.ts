@@ -1,8 +1,8 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
-const appName = process.env.COZE_PROJECT_NAME || process.env.EXPO_PUBLIC_COZE_PROJECT_NAME || '应用';
+const appName = process.env.COZE_PROJECT_NAME || process.env.EXPO_PUBLIC_COZE_PROJECT_NAME || '雅思单词App';
 const projectId = process.env.COZE_PROJECT_ID || process.env.EXPO_PUBLIC_COZE_PROJECT_ID;
-const slugAppName = projectId ? `app${projectId}` : 'myapp';
+const slugAppName = projectId ? `app${projectId}` : 'ielts-vocabulary';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   return {
@@ -14,6 +14,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
+    "owner": "mikelu332",
+    "extra": {
+      "eas": {
+        "projectId": "9c888b19-d938-4d6a-bce9-37e98f9888ee"
+      }
+    },
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,

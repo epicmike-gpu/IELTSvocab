@@ -104,3 +104,7 @@ expo-env.d.ts
 node-compile-cache/
 .codegraph/
 .preview
+
+# Apple ASC API Key
+AuthKey_*.p8
+credentials.json
