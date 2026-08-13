@@ -5,6 +5,8 @@ import type { Purchase } from 'expo-iap';
 
 export interface MaterialInfo {
   id: string;
+  // App Store Connect 里的内购商品 ID，缺省时与词库 id 相同（顺序/乱序版在 ASC 建品时带了包名前缀）
+  productId?: string;
   name: string;
   price: number;
   isFree: boolean;
@@ -14,14 +16,14 @@ export const MATERIALS: MaterialInfo[] = [
   { id: 'core', name: '核心词汇', price: 0, isFree: true },
   { id: 'academic', name: '学术词汇', price: 0, isFree: true },
   { id: 'advanced', name: '高级词汇', price: 0, isFree: true },
-  { id: 'ielts_sequential', name: '雅思 8000 词 (顺序版)', price: 6, isFree: false },
-  { id: 'ielts_random', name: '雅思 8000 词 (乱序版)', price: 6, isFree: false },
+  { id: 'ielts_sequential', productId: 'com.mikelu.ieltsvocab.sequential', name: '雅思 8000 词 (顺序版)', price: 6, isFree: false },
+  { id: 'ielts_random', productId: 'com.mikelu.ieltsvocab.random', name: '雅思 8000 词 (乱序版)', price: 6, isFree: false },
   { id: 'ielts_frequency', name: '雅思 8000 词 (词频排序版)', price: 6, isFree: false },
   { id: 'ielts_root', name: '雅思 8000 词 (词根归类版)', price: 6, isFree: false },
 ];
 
 const STORAGE_KEY = 'purchased_materials';
-const PRODUCT_IDS = MATERIALS.filter(m => !m.isFree).map(m => m.id);
+const MATERIAL_ID_BY_PRODUCT = new Map(MATERIALS.map(m => [m.productId ?? m.id, m.id]));
 // expo-iap 没有 web 实现，web 预览保留模拟购买；iOS 走真实 StoreKit
 const IAP_SUPPORTED = Platform.OS === 'ios';
 
@@ -83,15 +85,16 @@ export function PurchaseProvider({ children }: { children: ReactNode }) {
 
         listeners = [
           iap.purchaseUpdatedListener(async (purchase: Purchase) => {
+            const materialId = MATERIAL_ID_BY_PRODUCT.get(purchase.productId);
             try {
               await iap.finishTransaction({ purchase, isConsumable: false });
             } catch (e) {
               console.warn('finishTransaction failed:', e);
             }
-            if (PRODUCT_IDS.includes(purchase.productId)) {
-              addPurchased(purchase.productId);
-              pendingRef.current.get(purchase.productId)?.resolve();
-              pendingRef.current.delete(purchase.productId);
+            if (materialId) {
+              addPurchased(materialId);
+              pendingRef.current.get(materialId)?.resolve();
+              pendingRef.current.delete(materialId);
             }
           }),
           iap.purchaseErrorListener((error) => {
@@ -132,10 +135,11 @@ export function PurchaseProvider({ children }: { children: ReactNode }) {
     }
 
     const iap = await import('expo-iap');
+    const sku = material.productId ?? material.id;
     await new Promise<void>((resolve, reject) => {
       pendingRef.current.set(materialId, { resolve, reject });
       iap.requestPurchase({
-        request: { apple: { sku: materialId } },
+        request: { apple: { sku } },
         type: 'in-app',
       }).catch((e: unknown) => {
         pendingRef.current.delete(materialId);
@@ -150,11 +154,12 @@ export function PurchaseProvider({ children }: { children: ReactNode }) {
     const purchases = await iap.getAvailablePurchases({ onlyIncludeActiveItemsIOS: true });
     let restored = 0;
     for (const purchase of purchases) {
-      if (!PRODUCT_IDS.includes(purchase.productId)) continue;
+      const materialId = MATERIAL_ID_BY_PRODUCT.get(purchase.productId);
+      if (!materialId) continue;
       try {
         await iap.finishTransaction({ purchase, isConsumable: false });
       } catch {}
-      addPurchased(purchase.productId);
+      addPurchased(materialId);
       restored++;
     }
     return restored;
