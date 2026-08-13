@@ -285,7 +285,8 @@ import { Screen } from '../../../components/Screen';
 
 ## 生产部署（Vercel + Supabase）
 
-- 后端托管在 Vercel：`https://ielt-svocab.vercel.app`，项目 Root Directory = **仓库根目录**（Vercel 只认根目录的 `vercel.json` 和 `api/`，`server/` 下的同名文件无效）
+- **国内访问必须走自定义域名 `https://www.ieltsmobile.top`**：`*.vercel.app` 在国内被 SNI 阻断 + DNS 污染（Vercel 任播 IP 本身可达），App 直连 vercel.app 会永久转圈；域名已绑到同一 Vercel 项目，A 记录指向 76.76.21.21，无需备案
+- 后端托管在 Vercel：`https://ielt-svocab.vercel.app`（仅海外可达，审核员用），项目 Root Directory = **仓库根目录**（Vercel 只认根目录的 `vercel.json` 和 `api/`，`server/` 下的同名文件无效）
 - 根 `api/index.ts` 是 serverless 入口（含错误捕获包装）；根 `vercel.json` 把 `/api/*` rewrite 到函数，`includeFiles` 打包 `server/data/**` 词库 JSON
 - **Vercel 逐文件转译为 ESM 且不打包**：server 代码里相对导入必须带 `.js` 扩展名，否则线上 ERR_MODULE_NOT_FOUND
 - 静态文件在 `public/`（隐私政策页，App Store 审核用）；Vercel 控制台 Build/Output/Install 三个 Override 必须保持关闭
