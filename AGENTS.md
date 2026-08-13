@@ -302,6 +302,14 @@ import { Screen } from '../../../components/Screen';
 - 购买态持久化在 AsyncStorage（STORAGE_KEY=purchased_materials）；恢复购买走 getAvailablePurchases
 - **IAP 无法在 web 预览测试**，必须 EAS Build 出真机包 + 沙盒测试账号验证
 
+## EAS 构建与上架
+
+- `client/app.config.ts` 的 `name` 必须保持纯 ASCII（`ieltsvocab`）：EAS 签名配置按 name 生成 Xcode target 名，CJK 字符被剥离后两边规则不一致，会报 "Could not find target 'xxx' in project.pbxproj"；设备显示名走 `ios.infoPlist.CFBundleDisplayName`（雅思词汇100分）
+- 沙箱里跑 eas build/submit 必须清空 `COZE_PROJECT_ID`/`COZE_PROJECT_NAME`/`EXPO_PUBLIC_COZE_*` 环境变量，否则 slug 被解析成 `app<COZE_PROJECT_ID>` 与 EAS 项目不匹配
+- 签名资产在 `client/credentials/`（gitignored）：dist.p12 密码在 `.p12-password`；p12 必须含 WWDR G3 中级证书且用 `openssl pkcs12 -export -legacy` 导出（macOS security 不认 OpenSSL 3 默认算法）
+- ASC API 私钥 `client/AuthKey_QG9DS2MQDM.p8`（gitignored）；ASC App ID 6799824519；EAS projectId 9c888b19-d938-4d6a-bce9-37e98f9888ee
+- App 无登录系统：App Store / TestFlight 表单里的 "Sign-in required" 一律不勾
+
 ## 设计风格
 
 柔和卡片风（新拟态），主色 #6C63FF，辅色 #FF6584，背景 #F0F0F3。详见 `DESIGN.md`。
