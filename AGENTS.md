@@ -299,7 +299,8 @@ import { Screen } from '../../../components/Screen';
 
 - `client/contexts/PurchaseContext.tsx`：iOS 用 expo-iap（StoreKit 2），web 预览保留模拟购买；expo-iap 无 web 实现，**必须动态 import 且只在 Platform.OS === 'ios' 时调用**
 - expo-iap 的 requestPurchase 是事件型 API：结果走 purchaseUpdatedListener / purchaseErrorListener，context 里用 pendingRef Map 桥接成 Promise
-- 4 个非消耗型商品（¥6）：ielts_sequential / ielts_random / ielts_frequency / ielts_root，已在 App Store Connect 创建
+- 4 个非消耗型商品（¥6）已在 ASC 创建且状态 READY_TO_SUBMIT。**ASC 真实商品 ID 与词库 id 不同**：顺序版=`com.mikelu.ieltsvocab.sequential`、乱序版=`com.mikelu.ieltsvocab.random`、词频版=`ielts_frequency`、词根版=`ielts_root`；PurchaseContext 的 `MaterialInfo.productId` 字段负责映射，词库 id 保持不变
+- ASC API 注意：`/v1/apps/{id}/inAppPurchases` 返回的 UUID 是旧版 ID，与 v2 接口不通用；v2 数字 ID 走 `/v1/apps/{id}/inAppPurchasesV2` 获取
 - 购买态持久化在 AsyncStorage（STORAGE_KEY=purchased_materials）；恢复购买走 getAvailablePurchases
 - **IAP 无法在 web 预览测试**，必须 EAS Build 出真机包 + 沙盒测试账号验证
 
