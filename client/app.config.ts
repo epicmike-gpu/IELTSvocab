@@ -1,6 +1,8 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
-const appName = process.env.COZE_PROJECT_NAME || process.env.EXPO_PUBLIC_COZE_PROJECT_NAME || '雅思词汇100分';
+// name 必须保持纯 ASCII（EAS 签名配置按 name 生成 Xcode target 名，CJK 会导致 target 不匹配）
+// 设备上的显示名通过 ios.infoPlist.CFBundleDisplayName 单独指定
+const appName = process.env.COZE_PROJECT_NAME || process.env.EXPO_PUBLIC_COZE_PROJECT_NAME || 'ieltsvocab';
 const projectId = process.env.COZE_PROJECT_ID || process.env.EXPO_PUBLIC_COZE_PROJECT_ID;
 const slugAppName = projectId ? `app${projectId}` : 'ielts-vocabulary';
 
@@ -26,6 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "bundleIdentifier": "com.mikelu.ieltsvocab",
       "buildNumber": "1.0.0",
       "infoPlist": {
+        "CFBundleDisplayName": "雅思词汇100分",
         "NSUserTrackingUsageDescription": "用于个性化学习体验",
         "ITSAppUsesNonExemptEncryption": false
       }
