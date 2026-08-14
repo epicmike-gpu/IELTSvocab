@@ -39,7 +39,6 @@ interface PurchaseContextType {
   isMaterialUnlocked: (materialId: string) => boolean;
   purchaseMaterial: (materialId: string) => Promise<void>;
   restorePurchases: () => Promise<number>;
-  resetPurchase: (materialId: string) => Promise<void>;
   getMaterial: (materialId: string) => MaterialInfo | undefined;
 }
 
@@ -165,17 +164,6 @@ export function PurchaseProvider({ children }: { children: ReactNode }) {
     return restored;
   };
 
-  const resetPurchase = async (materialId: string) => {
-    const newPurchased = new Set(purchasedMaterials);
-    newPurchased.delete(materialId);
-    setPurchasedMaterials(newPurchased);
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([...newPurchased]));
-    } catch (error) {
-      console.error('Failed to save purchased materials:', error);
-    }
-  };
-
   const getMaterial = (materialId: string): MaterialInfo | undefined => {
     return MATERIALS.find(m => m.id === materialId);
   };
@@ -187,7 +175,6 @@ export function PurchaseProvider({ children }: { children: ReactNode }) {
         isMaterialUnlocked,
         purchaseMaterial,
         restorePurchases,
-        resetPurchase,
         getMaterial,
       }}
     >

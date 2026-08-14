@@ -16,7 +16,7 @@ interface ProgressData {
 
 export default function StatsScreen() {
   const { currentListId, lists, setListId, refreshLists } = useWordList();
-  const { isMaterialUnlocked, purchaseMaterial, restorePurchases, getMaterial, resetPurchase } = usePurchase();
+  const { isMaterialUnlocked, purchaseMaterial, restorePurchases, getMaterial } = usePurchase();
   const [progress, setProgress] = useState<Record<string, ProgressData>>({});
   const [loading, setLoading] = useState(true);
   const [purchaseModal, setPurchaseModal] = useState<{ visible: boolean; materialId: string | null }>({ visible: false, materialId: null });
@@ -256,7 +256,7 @@ export default function StatsScreen() {
                   <View className="bg-gray-50 rounded-2xl p-4 mb-4 border border-gray-100">
                     <View className="flex-row justify-between items-center">
                       <Text className="text-muted text-sm">词表内容</Text>
-                      <Text className="text-foreground font-semibold">{material.id === 'ielts_sequential' || material.id === 'ielts_random' ? '7956' : '50'} 词</Text>
+                      <Text className="text-foreground font-semibold">7956 词</Text>
                     </View>
                     <View className="flex-row justify-between items-center mt-2">
                       <Text className="text-muted text-sm">例句发音</Text>
@@ -291,16 +291,6 @@ export default function StatsScreen() {
                           <Text className="text-muted font-semibold">关闭</Text>
                         </Pressable>
                       </View>
-                      <Pressable
-                        onPress={() => {
-                          resetPurchase(purchaseModal.materialId!);
-                          setPurchaseModal({ visible: false, materialId: null });
-                          Alert.alert('已重置', '材料已重新锁定');
-                        }}
-                        className="mt-3 items-center"
-                      >
-                        <Text className="text-gray-400 text-xs">重新锁定（仅供截图测试）</Text>
-                      </Pressable>
                     </>
                   ) : (
                     <>
