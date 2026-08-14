@@ -29,7 +29,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "buildNumber": "1.0.0",
       "infoPlist": {
         "CFBundleDisplayName": "雅思词汇100分",
-        "NSUserTrackingUsageDescription": "用于个性化学习体验",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
