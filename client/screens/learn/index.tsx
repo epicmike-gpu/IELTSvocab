@@ -23,7 +23,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWordList } from '@/contexts/WordListContext';
-import { useLearningRecord } from '@/hooks/useLearningRecord';
+import { getDeviceId } from '@/utils/deviceId';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 64;
@@ -59,6 +59,21 @@ const difficultyColor = (d: number) => {
 
 function speakWord(word: string) {
   Speech.speak(word, { language: 'en-GB', rate: 0.85 });
+}
+
+async function recordWord(wordId: number, wordListId: string, status: 'known' | 'unknown') {
+  try {
+    await fetch(`${BASE_URL}/api/v1/learning/record`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': await getDeviceId(),
+      },
+      body: JSON.stringify({ wordId, wordListId, status }),
+    });
+  } catch {
+    // ignore
+  }
 }
 
 function getWordFontSize(word: string): number {
@@ -249,7 +264,6 @@ function WordCard({
 
 export default function LearnScreen() {
   const { currentListId, currentList } = useWordList();
-  const { addRecord } = useLearningRecord();
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -263,7 +277,9 @@ export default function LearnScreen() {
     setLoading(true);
     generatingRef.current.clear();
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/words/batch?listId=${currentListId}&offset=0&limit=10`);
+      const res = await fetch(`${BASE_URL}/api/v1/words/batch?listId=${currentListId}&offset=0&limit=10`, {
+        headers: { 'x-device-id': await getDeviceId() },
+      });
       const data = await res.json();
       setWords(data.words);
       setCurrentIndex(0);
@@ -345,10 +361,10 @@ export default function LearnScreen() {
     if (!word) return;
     setIsAnimating(true);
     setSessionCount((c) => c + 1);
-    addRecord(word.id, currentListId, 'known');
+    recordWord(word.id, currentListId, 'known');
     handleNext();
     setTimeout(() => setIsAnimating(false), 300);
-  }, [words, currentIndex, handleNext, currentListId, isAnimating, addRecord]);
+  }, [words, currentIndex, handleNext, currentListId, isAnimating]);
 
   const handleUnknown = useCallback(() => {
     if (isAnimating) return;
@@ -356,10 +372,10 @@ export default function LearnScreen() {
     if (!word) return;
     setIsAnimating(true);
     setSessionCount((c) => c + 1);
-    addRecord(word.id, currentListId, 'unknown');
+    recordWord(word.id, currentListId, 'unknown');
     handleNext();
     setTimeout(() => setIsAnimating(false), 300);
-  }, [words, currentIndex, handleNext, currentListId, isAnimating, addRecord]);
+  }, [words, currentIndex, handleNext, currentListId, isAnimating]);
 
   const handleLoadMore = () => {
     setAllDone(false);
@@ -406,6 +422,7 @@ export default function LearnScreen() {
                 const baseUrl = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
                 await fetch(`${baseUrl}/api/v1/learning/reset?listId=${currentListId}`, {
                   method: 'DELETE',
+                  headers: { 'x-device-id': await getDeviceId() },
                 });
                 handleLoadMore();
               } catch (e) {

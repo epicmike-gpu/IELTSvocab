@@ -328,7 +328,7 @@ app.get('/api/v1/words/batch', async (req, res) => {
   }
 
   // 使用固定用户 ID（无需登录）
-  const userId = 'anonymous-user';
+  const userId = (req.headers['x-device-id'] as string) || 'anonymous-user';
   let learnedWordIds = new Set<number>();
   
   try {
@@ -656,7 +656,7 @@ app.get('/api/v1/auth/me', async (req, res) => {
 // 保存学习记录
 app.post('/api/v1/learning/record', async (req, res) => {
   // 使用固定用户 ID（无需登录）
-  const userId = 'anonymous-user';
+  const userId = (req.headers['x-device-id'] as string) || 'anonymous-user';
 
   try {
     const { wordId, wordListId, status } = req.body;
@@ -699,7 +699,7 @@ app.post('/api/v1/learning/record', async (req, res) => {
 // 获取用户学习进度
 app.get('/api/v1/learning/progress', async (req, res) => {
   // 使用固定用户 ID（无需登录）
-  const userId = 'anonymous-user';
+  const userId = (req.headers['x-device-id'] as string) || 'anonymous-user';
 
   try {
     const { getSupabaseClient } = await import('./storage/database/shared/supabase-client.js');
@@ -733,7 +733,7 @@ app.get('/api/v1/learning/progress', async (req, res) => {
 // 获取用户复习本
 app.get('/api/v1/learning/review', async (req, res) => {
   // 使用固定用户 ID（无需登录）
-  const userId = 'anonymous-user';
+  const userId = (req.headers['x-device-id'] as string) || 'anonymous-user';
 
   try {
     const listId = req.query.listId as string || 'core';
@@ -768,7 +768,7 @@ app.get('/api/v1/learning/review', async (req, res) => {
 
 // 重置词表学习记录
 app.delete('/api/v1/learning/reset', async (req, res) => {
-  const userId = 'anonymous-user';
+  const userId = (req.headers['x-device-id'] as string) || 'anonymous-user';
   const { listId } = req.query;
 
   if (!listId) {

@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { getDeviceId } from '@/utils/deviceId';
 
 if (Platform.OS === 'web') {
   // @ts-ignore
@@ -109,7 +110,9 @@ export default function ReviewScreen() {
   const fetchReview = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/learning/review?listId=${currentListId}`);
+      const res = await fetch(`${BASE_URL}/api/v1/learning/review?listId=${currentListId}`, {
+        headers: { 'x-device-id': await getDeviceId() },
+      });
       const data = await res.json();
       setReviewWords(data.words || []);
     } catch {
@@ -131,6 +134,7 @@ export default function ReviewScreen() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-device-id': await getDeviceId(),
         },
         body: JSON.stringify({
           wordId,

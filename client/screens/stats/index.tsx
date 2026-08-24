@@ -5,7 +5,9 @@ import { Screen } from '@/components/Screen';
 import { useFocusEffect } from 'expo-router';
 import { useWordList } from '@/contexts/WordListContext';
 import { usePurchase, MATERIALS, PurchaseCancelledError } from '@/contexts/PurchaseContext';
-import { useLearningRecord } from '@/hooks/useLearningRecord';
+import { getDeviceId } from '@/utils/deviceId';
+
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
 interface ProgressData {
   known: number;
@@ -16,18 +18,26 @@ interface ProgressData {
 export default function StatsScreen() {
   const { currentListId, lists, setListId, refreshLists } = useWordList();
   const { isMaterialUnlocked, purchaseMaterial, restorePurchases, getMaterial } = usePurchase();
-  const { getAllProgress, resetProgress, loading: recordsLoading } = useLearningRecord();
   const [progress, setProgress] = useState<Record<string, ProgressData>>({});
   const [loading, setLoading] = useState(true);
   const [purchaseModal, setPurchaseModal] = useState<{ visible: boolean; materialId: string | null }>({ visible: false, materialId: null });
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
-  const fetchProgress = useCallback(() => {
-    const allProgress = getAllProgress();
-    setProgress(allProgress);
-    setLoading(false);
-  }, [getAllProgress]);
+  const fetchProgress = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${BASE_URL}/api/v1/learning/progress`, {
+        headers: { 'x-device-id': await getDeviceId() },
+      });
+      const data = await res.json();
+      setProgress(data.progress || {});
+    } catch (e) {
+      console.error('Failed to fetch progress:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useFocusEffect(useCallback(() => {
     fetchProgress();
@@ -102,9 +112,20 @@ export default function StatsScreen() {
           text: '确定',
           style: 'destructive',
           onPress: async () => {
-            await resetProgress(listId);
-            Alert.alert('已重置', '学习记录已清空，可以重新开始');
-            fetchProgress();
+            try {
+              const res = await fetch(`${BASE_URL}/api/v1/learning/reset?listId=${listId}`, {
+                method: 'DELETE',
+                headers: { 'x-device-id': await getDeviceId() },
+              });
+              if (res.ok) {
+                Alert.alert('已重置', '学习记录已清空，可以重新开始');
+                fetchProgress();
+              } else {
+                Alert.alert('失败', '重置失败，请稍后重试');
+              }
+            } catch {
+              Alert.alert('失败', '网络错误，请稍后重试');
+            }
           },
         },
       ]
@@ -247,7 +268,7 @@ export default function StatsScreen() {
                     </View>
                     <View className="flex-row justify-between items-center mt-2">
                       <Text className="text-muted text-sm">学习记录</Text>
-                      <Text className="text-foreground font-semibold">本地存储</Text>
+                      <Text className="text-foreground font-semibold">云端存储</Text>
                     </View>
                   </View>
 

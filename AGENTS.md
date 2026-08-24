@@ -290,7 +290,8 @@ import { Screen } from '../../../components/Screen';
 - 根 `api/index.ts` 是 serverless 入口（含错误捕获包装）；根 `vercel.json` 把 `/api/*` rewrite 到函数，`includeFiles` 打包 `server/data/**` 词库 JSON
 - **Vercel 逐文件转译为 ESM 且不打包**：server 代码里相对导入必须带 `.js` 扩展名，否则线上 ERR_MODULE_NOT_FOUND
 - 静态文件在 `public/`（隐私政策页，App Store 审核用）；Vercel 控制台 Build/Output/Install 三个 Override 必须保持关闭
-- Supabase（用户自建项目）：环境变量 `COZE_SUPABASE_URL` / `COZE_SUPABASE_ANON_KEY` 配在 Vercel；`learning_records` 表无外键、未开 RLS（匿名固定用户 anonymous-user）
+- Supabase（用户自建项目）：环境变量 `COZE_SUPABASE_URL` / `COZE_SUPABASE_ANON_KEY` 配在 Vercel；`learning_records` 表无外键、未开 RLS
+- **学习数据按设备隔离**：客户端 `client/utils/deviceId.ts` 在安装时生成 UUID 存 AsyncStorage，所有学习相关请求（words/batch、learning/record|progress|review|reset）带 `x-device-id` header；服务端用它作 user_id（无 header 时回退 anonymous-user）。每台设备/每次安装 = 独立记录集，互不同步。改服务端后必须 push 触发 Vercel 部署才生效
 - 词库数据已全量静态化：7,956 词的音标/例句全部预生成在 `server/data/*.json`（脚本 `server/scripts/batch-enrich.ts`，用 coze-coding-dev-sdk 在 Coze 环境跑；该 SDK 在 Vercel 不可用）
 - serverless 下 `fs.writeFile` 写入是临时的，不要在 Vercel 上依赖运行时改 JSON
 - 客户端生产后端地址由 `client/eas.json` 的 production profile 注入（`EXPO_PUBLIC_BACKEND_BASE_URL`）
