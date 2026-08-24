@@ -23,6 +23,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWordList } from '@/contexts/WordListContext';
+import { useLearningRecord } from '@/hooks/useLearningRecord';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 64;
@@ -248,6 +249,7 @@ function WordCard({
 
 export default function LearnScreen() {
   const { currentListId, currentList } = useWordList();
+  const { addRecord } = useLearningRecord();
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -343,21 +345,10 @@ export default function LearnScreen() {
     if (!word) return;
     setIsAnimating(true);
     setSessionCount((c) => c + 1);
-    // 使用新的学习记录 API
-    fetch(`${BASE_URL}/api/v1/learning/record`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        wordId: word.id, 
-        wordListId: currentListId, 
-        status: 'known' 
-      }),
-    }).catch(() => { /* ignore */ });
+    addRecord(word.id, currentListId, 'known');
     handleNext();
     setTimeout(() => setIsAnimating(false), 300);
-  }, [words, currentIndex, handleNext, currentListId, isAnimating]);
+  }, [words, currentIndex, handleNext, currentListId, isAnimating, addRecord]);
 
   const handleUnknown = useCallback(() => {
     if (isAnimating) return;
@@ -365,21 +356,10 @@ export default function LearnScreen() {
     if (!word) return;
     setIsAnimating(true);
     setSessionCount((c) => c + 1);
-    // 使用新的学习记录 API
-    fetch(`${BASE_URL}/api/v1/learning/record`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        wordId: word.id, 
-        wordListId: currentListId, 
-        status: 'unknown' 
-      }),
-    }).catch(() => { /* ignore */ });
+    addRecord(word.id, currentListId, 'unknown');
     handleNext();
     setTimeout(() => setIsAnimating(false), 300);
-  }, [words, currentIndex, handleNext, currentListId, isAnimating]);
+  }, [words, currentIndex, handleNext, currentListId, isAnimating, addRecord]);
 
   const handleLoadMore = () => {
     setAllDone(false);
