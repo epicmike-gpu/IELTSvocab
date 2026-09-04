@@ -311,6 +311,8 @@ import { Screen } from '../../../components/Screen';
 - **EAS 会话不跨会话保留**（/root 在沙箱会话间重置）：构建需 `EXPO_TOKEN` 或让用户在本机跑 `eas build`；eas-cli 用 `npx eas-cli`（全局没装）
 - 沙箱里跑 eas build/submit 必须清空 `COZE_PROJECT_ID`/`COZE_PROJECT_NAME`/`EXPO_PUBLIC_COZE_*` 环境变量，否则 slug 被解析成 `app<COZE_PROJECT_ID>` 与 EAS 项目不匹配
 - 签名资产在 `client/credentials/`（gitignored）：dist.p12 密码在 `.p12-password`；p12 必须含 WWDR G3 中级证书且用 `openssl pkcs12 -export -legacy` 导出（macOS security 不认 OpenSSL 3 默认算法）
+- **2026-09-04 签名凭证已轮换**：旧分发证书（serial 09D45802...）被 Apple 吊销导致构建失败；新证书 serial 17F5D2D59EA3871BA6DA546A7B94C863（ASC API id A2SC7Z2J6Z，有效期至 2027-09-04），新 profile GKB6MGN7V5（"ieltsvocab AppStore 2026-09"，有效期至 2027-09-04）。轮换方式：openssl 生成 CSR → ASC API POST /v1/certificates 签发 → attributes.profileContent 直接含 profile 内容（/v1/profiles/{id}/profileContent 端点在本 API 版本 404，勿用）→ pkcs12 -legacy 打包
+- EAS 构建认证：EXPO_TOKEN 由用户在对话中提供，按次临时注入命令行，不落盘。ASC API JWT 必须带 `'aud':'appstoreconnect-v1'` 声明，否则 401
 - ASC API 私钥 `client/AuthKey_QG9DS2MQDM.p8`（gitignored）；ASC App ID 6799824519；EAS projectId 9c888b19-d938-4d6a-bce9-37e98f9888ee
 - App 无登录系统：App Store / TestFlight 表单里的 "Sign-in required" 一律不勾
 
