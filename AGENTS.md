@@ -307,11 +307,20 @@ import { Screen } from '../../../components/Screen';
 
 ## EAS 构建与上架
 
-- `client/app.config.ts` 的 `name` 必须保持纯 ASCII（`ieltsvocab`）：EAS 签名配置按 name 生成 Xcode target 名，CJK 字符被剥离后两边规则不一致，会报 "Could not find target 'xxx' in project.pbxproj"；设备显示名走 `ios.infoPlist.CFBundleDisplayName`（雅思词汇100分）
+- `client/app.config.ts` 的 `name` 必须保持纯 ASCII（`ieltsvocab`）：EAS 签名配置按 name 生成 Xcode target 名，CJK 字符被剥离后两边规则不一致，会报 "Could not find target 'xxx' in project.pbxproj"；设备显示名走 `ios.infoPlist.CFBundleDisplayName`（现为"闪词100分"，因商标合规改名）
+- **EAS 会话不跨会话保留**（/root 在沙箱会话间重置）：构建需 `EXPO_TOKEN` 或让用户在本机跑 `eas build`；eas-cli 用 `npx eas-cli`（全局没装）
 - 沙箱里跑 eas build/submit 必须清空 `COZE_PROJECT_ID`/`COZE_PROJECT_NAME`/`EXPO_PUBLIC_COZE_*` 环境变量，否则 slug 被解析成 `app<COZE_PROJECT_ID>` 与 EAS 项目不匹配
 - 签名资产在 `client/credentials/`（gitignored）：dist.p12 密码在 `.p12-password`；p12 必须含 WWDR G3 中级证书且用 `openssl pkcs12 -export -legacy` 导出（macOS security 不认 OpenSSL 3 默认算法）
 - ASC API 私钥 `client/AuthKey_QG9DS2MQDM.p8`（gitignored）；ASC App ID 6799824519；EAS projectId 9c888b19-d938-4d6a-bce9-37e98f9888ee
 - App 无登录系统：App Store / TestFlight 表单里的 "Sign-in required" 一律不勾
+
+## 商标合规（2026-09 审核 4.1(a) 整改）
+
+- **IELTS/雅思 是 British Council/IDP/Cambridge 注册商标，个人无法获得授权**：App Store 元数据与 App 内可见文案一律不得出现"雅思/IELTS"，否则 4.1(a) Copycats 拒审
+- 品牌已改名：**闪词100分**（CFBundleDisplayName、登录页标题）；ASC 商店名称需同步在 App Information 改，bundle ID `com.mikelu.ieltsvocab` 不可改也不构成元数据
+- 词库名统一"完整 8000 词（顺序版/乱序版/词频排序版/词根归类版）"：server/data/*.json（线上来源）、PurchaseContext MATERIALS、ASC IAP Display Name 三处必须保持一致（审核员靠名称匹配 IAP 与 App 内入口）
+- 隐私政策 public/index.md 已同步设备隔离架构（匿名 Device ID 存服务端），不要再写"数据仅存本地"
+- 中国大陆上架需 NPPA 网络出版服务许可证（个人无法办理），已选路线：**移除中国大陆销售范围**，销售范围在 ASC"价格与销售范围"的 Availability 区块配置
 
 ## 设计风格
 
