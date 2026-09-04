@@ -443,7 +443,7 @@ export default function LearnScreen() {
         <View style={[styles.container, { paddingTop: insets.top + 4 }]}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>{currentList?.name || '词汇学习'}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">{currentList?.name || '词汇学习'}</Text>
             <View style={styles.progressBadge}>
               <Text style={styles.progressText}>
                 {currentIndex + 1} / {words.length}
@@ -534,15 +534,18 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
     color: '#2D3436',
+    flexShrink: 1,
+    marginRight: 12,
   },
   progressBadge: {
     backgroundColor: 'rgba(108,99,255,0.10)',
     borderRadius: 9999,
     paddingHorizontal: 14,
     paddingVertical: 6,
+    flexShrink: 0,
   },
   progressText: {
     fontSize: 13,
