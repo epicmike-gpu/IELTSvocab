@@ -443,7 +443,7 @@ export default function LearnScreen() {
         <View style={[styles.container, { paddingTop: insets.top + 4 }]}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>{currentList?.name || '雅思词汇'}</Text>
+            <Text style={styles.headerTitle}>{currentList?.name || '词汇学习'}</Text>
             <View style={styles.progressBadge}>
               <Text style={styles.progressText}>
                 {currentIndex + 1} / {words.length}

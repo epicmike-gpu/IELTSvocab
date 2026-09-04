@@ -16,10 +16,10 @@ export const MATERIALS: MaterialInfo[] = [
   { id: 'core', name: '核心词汇', price: 0, isFree: true },
   { id: 'academic', name: '学术词汇', price: 0, isFree: true },
   { id: 'advanced', name: '高级词汇', price: 0, isFree: true },
-  { id: 'ielts_sequential', productId: 'com.mikelu.ieltsvocab.sequential', name: '雅思 8000 词 (顺序版)', price: 6, isFree: false },
-  { id: 'ielts_random', productId: 'com.mikelu.ieltsvocab.random', name: '雅思 8000 词 (乱序版)', price: 6, isFree: false },
-  { id: 'ielts_frequency', name: '雅思 8000 词 (词频排序版)', price: 6, isFree: false },
-  { id: 'ielts_root', name: '雅思 8000 词 (词根归类版)', price: 6, isFree: false },
+  { id: 'ielts_sequential', productId: 'com.mikelu.ieltsvocab.sequential', name: '完整 8000 词（顺序版）', price: 6, isFree: false },
+  { id: 'ielts_random', productId: 'com.mikelu.ieltsvocab.random', name: '完整 8000 词（乱序版）', price: 6, isFree: false },
+  { id: 'ielts_frequency', name: '完整 8000 词（词频排序版）', price: 6, isFree: false },
+  { id: 'ielts_root', name: '完整 8000 词（词根归类版）', price: 6, isFree: false },
 ];
 
 const STORAGE_KEY = 'purchased_materials';

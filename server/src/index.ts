@@ -73,7 +73,7 @@ const WORD_LISTS: WordList[] = [
   {
     id: "core",
     name: "核心词汇",
-    description: "雅思高频核心 50 词，考试必背",
+    description: "高频核心 50 词，考试必背",
     icon: "star",
     color: "#6C63FF",
     words: [
@@ -132,7 +132,7 @@ const WORD_LISTS: WordList[] = [
   {
     id: "academic",
     name: "学术词汇",
-    description: "雅思学术类 A 类高频词",
+    description: "学术类 A 类高频词",
     icon: "graduation-cap",
     color: "#4ECDC4",
     words: [
@@ -191,7 +191,7 @@ const WORD_LISTS: WordList[] = [
   {
     id: "advanced",
     name: "进阶词汇",
-    description: "雅思 7+ 高分进阶词汇",
+    description: "7+ 高分进阶词汇",
     icon: "rocket",
     color: "#FF6584",
     words: [

@@ -83,7 +83,7 @@ export default function LoginScreen() {
             <View className="w-20 h-20 bg-primary/10 rounded-3xl items-center justify-center mb-4">
               <FontAwesome6 name="book-open" size={36} color="#6C63FF" />
             </View>
-            <Text className="text-2xl font-bold text-foreground">雅思词汇</Text>
+            <Text className="text-2xl font-bold text-foreground">闪词100分</Text>
             <Text className="text-sm text-muted mt-2">登录后同步学习进度</Text>
           </View>
 

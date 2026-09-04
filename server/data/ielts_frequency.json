@@ -1,6 +1,6 @@
 {
   "id": "ielts_frequency",
-  "name": "雅思8000词（词频排序版）",
+  "name": "完整 8000 词（词频排序版）",
   "description": "按词频从高到低排序，先学最常考的词",
   "icon": "ranking-star",
   "words": [
