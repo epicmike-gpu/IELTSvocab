@@ -24,6 +24,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     "newArchEnabled": true,
     "runtimeVersion": { "policy": "appVersion" },
+    "updates": {
+      "url": "https://u.expo.dev/9c888b19-d938-4d6a-bce9-37e98f9888ee"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.mikelu.ieltsvocab",
