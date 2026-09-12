@@ -12,10 +12,15 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  withDelay,
+  withSequence,
   runOnJS,
   interpolate,
+  Easing,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -85,16 +90,48 @@ function getWordFontSize(word: string): number {
   return 26;
 }
 
+const BOLT_PATH = 'M 74 0 L 50 132 L 72 210 L 42 348 L 64 430 L 38 560';
+
+function LightningBolt({ progress }: { progress: SharedValue<number> }) {
+  const boltStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scaleY: Math.max(progress.value, 0.001) },
+      { translateY: (1 - progress.value) * (-CARD_HEIGHT / 2) },
+    ],
+    opacity: progress.value,
+  }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }, boltStyle]}
+    >
+      <Svg width={150} height={CARD_HEIGHT} viewBox="0 0 150 560" preserveAspectRatio="xMidYMid slice">
+        <Path d={BOLT_PATH} stroke="rgba(108,99,255,0.35)" strokeWidth={30} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        <Path d={BOLT_PATH} stroke="#FFD60A" strokeWidth={13} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        <Path d={BOLT_PATH} stroke="#FFB800" strokeWidth={8} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        <Path d={BOLT_PATH} stroke="#FFFFFF" strokeWidth={4} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+      </Svg>
+    </Animated.View>
+  );
+}
+
 function WordCard({
   word,
   onSwipeLeft,
   onSwipeRight,
   isTop,
+  splitTrigger,
+  underReveal,
+  onSplitStart,
 }: {
   word: Word;
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
   isTop: boolean;
+  splitTrigger: number;
+  underReveal: boolean;
+  onSplitStart: () => void;
 }) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -105,18 +142,76 @@ function WordCard({
     flipProgress.value = 0;
   }, [word.id]);
 
+  // split-card state
+  const [splitting, setSplitting] = useState(false);
+  const splittingRef = useRef(false);
+  const lastTriggerRef = useRef(splitTrigger);
+  const halfLX = useSharedValue(0);
+  const halfLY = useSharedValue(0);
+  const halfLRot = useSharedValue(0);
+  const halfLOp = useSharedValue(1);
+  const halfRX = useSharedValue(0);
+  const halfRY = useSharedValue(0);
+  const halfRRot = useSharedValue(0);
+  const halfROp = useSharedValue(1);
+  const boltP = useSharedValue(0);
+  const flashOp = useSharedValue(0);
+  const shakeX = useSharedValue(0);
+
+  const triggerImpact = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
+  }, []);
+
+  const startSplit = useCallback(() => {
+    if (splittingRef.current || !isTop) return;
+    splittingRef.current = true;
+    setSplitting(true);
+    onSplitStart();
+    translateX.value = withTiming(0, { duration: 100 });
+    translateY.value = withTiming(0, { duration: 100 });
+    boltP.value = withDelay(110, withTiming(1, { duration: 90, easing: Easing.in(Easing.quad) }, (finished) => {
+      if (finished) runOnJS(triggerImpact)();
+    }));
+    flashOp.value = withDelay(200, withSequence(
+      withTiming(0.9, { duration: 45 }),
+      withTiming(0, { duration: 220 }),
+    ));
+    shakeX.value = withDelay(200, withSequence(
+      withTiming(-7, { duration: 40 }),
+      withTiming(6, { duration: 45 }),
+      withTiming(-3, { duration: 40 }),
+      withTiming(0, { duration: 30 }),
+    ));
+    const fly = { duration: 430, easing: Easing.out(Easing.quad) };
+    halfLX.value = withDelay(205, withTiming(-130, fly));
+    halfLY.value = withDelay(205, withTiming(56, fly));
+    halfLRot.value = withDelay(205, withTiming(-14, fly));
+    halfLOp.value = withDelay(340, withTiming(0, { duration: 260 }));
+    halfRX.value = withDelay(205, withTiming(130, fly));
+    halfRY.value = withDelay(205, withTiming(56, fly));
+    halfRRot.value = withDelay(205, withTiming(14, fly));
+    halfROp.value = withDelay(340, withTiming(0, { duration: 260 }));
+    withDelay(650, withTiming(1, { duration: 1 }, (finished) => {
+      if (finished) runOnJS(onSwipeRight)();
+    }));
+  }, [isTop, onSwipeRight, onSplitStart, triggerImpact, translateX, translateY, boltP, flashOp, shakeX, halfLX, halfLY, halfLRot, halfLOp, halfRX, halfRY, halfRRot, halfROp]);
+
+  useEffect(() => {
+    if (splitTrigger !== lastTriggerRef.current) {
+      lastTriggerRef.current = splitTrigger;
+      if (splitTrigger > 0 && isTop) startSplit();
+    }
+  }, [splitTrigger, isTop, startSplit]);
+
   const panGesture = Gesture.Pan()
-    .enabled(isTop && !isFlipped)
+    .enabled(isTop && !isFlipped && !splitting)
     .onUpdate((e) => {
       translateX.value = e.translationX;
       translateY.value = e.translationY * 0.3;
     })
     .onEnd((e) => {
       if (e.translationX > SWIPE_THRESHOLD) {
-        translateX.value = withTiming(SCREEN_WIDTH, { duration: 280 }, (finished) => {
-          if (finished) runOnJS(onSwipeRight)();
-        });
-        translateY.value = withTiming(40, { duration: 280 });
+        runOnJS(startSplit)();
       } else if (e.translationX < -SWIPE_THRESHOLD) {
         translateX.value = withTiming(-SCREEN_WIDTH, { duration: 280 }, (finished) => {
           if (finished) runOnJS(onSwipeLeft)();
@@ -150,7 +245,37 @@ function WordCard({
     transform: [
       { scale: interpolate(Math.abs(translateX.value), [0, SWIPE_THRESHOLD], [1, 0.95], 'clamp') },
     ],
-    opacity: interpolate(Math.abs(translateX.value), [0, SWIPE_THRESHOLD], [0, 0.6], 'clamp'),
+    opacity: underReveal ? 1 : interpolate(Math.abs(translateX.value), [0, SWIPE_THRESHOLD], [0, 0.6], 'clamp'),
+  }));
+
+  const splitContainerStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value + shakeX.value },
+      { translateY: translateY.value },
+      { rotate: `${translateX.value * 0.08}deg` },
+    ],
+  }));
+
+  const leftHalfStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: halfLX.value },
+      { translateY: halfLY.value },
+      { rotate: `${halfLRot.value}deg` },
+    ],
+    opacity: halfLOp.value,
+  }));
+
+  const rightHalfStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: halfRX.value },
+      { translateY: halfRY.value },
+      { rotate: `${halfRRot.value}deg` },
+    ],
+    opacity: halfROp.value,
+  }));
+
+  const flashStyle = useAnimatedStyle(() => ({
+    opacity: flashOp.value,
   }));
 
   const frontOpacity = useAnimatedStyle(() => ({
@@ -167,6 +292,80 @@ function WordCard({
     setIsFlipped(!isFlipped);
   };
 
+  const frontFace = (
+    <>
+      <View style={styles.difficultyBadge}>
+        <View
+          style={[
+            styles.difficultyDot,
+            { backgroundColor: difficultyColor(word.difficulty) },
+          ]}
+        />
+        <Text style={[styles.difficultyText, { color: difficultyColor(word.difficulty) }]}>
+          {difficultyLabel(word.difficulty)}
+        </Text>
+      </View>
+
+      <View style={styles.cardContent}>
+        <Text
+          style={[styles.wordText, { fontSize: getWordFontSize(word.word) }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
+          {word.word}
+        </Text>
+        <Text style={styles.phoneticText}>{word.phonetic || (isTop ? '加载音标...' : '')}</Text>
+        <Text style={styles.posText}>{word.pos}</Text>
+        {isTop && (
+          <Pressable
+            onPress={() => speakWord(word.word)}
+            style={styles.speakerBtn}
+          >
+            <FontAwesome6 name="volume-high" size={15} color="#6C63FF" />
+            <Text style={styles.speakerText}>听发音</Text>
+          </Pressable>
+        )}
+        <Text style={styles.tapHint}>点击卡片翻转查看释义</Text>
+      </View>
+
+      {/* Swipe overlays */}
+      <Animated.View style={[styles.swipeOverlay, rightOverlayStyle]}>
+        <View style={styles.overlayCircle}>
+          <FontAwesome6 name="check" size={32} color="#00B894" />
+        </View>
+        <Text style={[styles.overlayText, { color: '#00B894' }]}>认识</Text>
+      </Animated.View>
+
+      <Animated.View style={[styles.swipeOverlay, leftOverlayStyle]}>
+        <View style={styles.overlayCircle}>
+          <FontAwesome6 name="xmark" size={32} color="#FF6B6B" />
+        </View>
+        <Text style={[styles.overlayText, { color: '#FF6B6B' }]}>不认识</Text>
+      </Animated.View>
+    </>
+  );
+
+  const backFace = (
+    <View style={styles.backContent}>
+      <Text style={styles.backWord}>{word.word}</Text>
+      <Text style={styles.backPhonetic}>{word.phonetic}</Text>
+      <Pressable
+        onPress={() => speakWord(word.word)}
+        style={styles.speakerBtn}
+      >
+        <FontAwesome6 name="volume-high" size={15} color="#6C63FF" />
+        <Text style={styles.speakerText}>听发音</Text>
+      </Pressable>
+      <View style={styles.divider} />
+      <Text style={styles.backPos}>{word.pos}</Text>
+      <Text style={styles.backMeaning}>{word.meaning}</Text>
+      <View style={styles.exampleBox}>
+        <Text style={styles.exampleText}>{word.example || (isTop ? '正在生成例句...' : '')}</Text>
+        <Text style={styles.exampleCnText}>{word.exampleCn}</Text>
+      </View>
+    </View>
+  );
+
   return (
     <GestureDetector gesture={panGesture}>
       <Animated.View
@@ -176,86 +375,39 @@ function WordCard({
           { zIndex: isTop ? 10 : 1 },
         ]}
       >
-        {/* Front face */}
-        <Animated.View style={[styles.cardFace, frontOpacity]}>
-          <View style={styles.difficultyBadge}>
-            <View
-              style={[
-                styles.difficultyDot,
-                { backgroundColor: difficultyColor(word.difficulty) },
-              ]}
-            />
-            <Text style={[styles.difficultyText, { color: difficultyColor(word.difficulty) }]}>
-              {difficultyLabel(word.difficulty)}
-            </Text>
-          </View>
+        {splitting ? (
+          <Animated.View style={[styles.halfContainer, splitContainerStyle]}>
+            <Animated.View style={[styles.halfLeft, leftHalfStyle]}>
+              <View style={styles.halfInner} pointerEvents="none">
+                <Animated.View style={[styles.cardFace, frontOpacity]}>{frontFace}</Animated.View>
+                <Animated.View style={[styles.cardFace, styles.cardBack, backOpacity]}>{backFace}</Animated.View>
+              </View>
+            </Animated.View>
+            <Animated.View style={[styles.halfRight, rightHalfStyle]}>
+              <View style={[styles.halfInner, styles.halfInnerRight]} pointerEvents="none">
+                <Animated.View style={[styles.cardFace, frontOpacity]}>{frontFace}</Animated.View>
+                <Animated.View style={[styles.cardFace, styles.cardBack, backOpacity]}>{backFace}</Animated.View>
+              </View>
+            </Animated.View>
+            <LightningBolt progress={boltP} />
+            <Animated.View pointerEvents="none" style={[styles.flashLayer, flashStyle]} />
+          </Animated.View>
+        ) : (
+          <>
+            {/* Front face */}
+            <Animated.View style={[styles.cardFace, frontOpacity]}>{frontFace}</Animated.View>
 
-          <View style={styles.cardContent}>
-            <Text 
-              style={[styles.wordText, { fontSize: getWordFontSize(word.word) }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-            >
-              {word.word}
-            </Text>
-            <Text style={styles.phoneticText}>{word.phonetic || (isTop ? '加载音标...' : '')}</Text>
-            <Text style={styles.posText}>{word.pos}</Text>
-            {isTop && (
+            {/* Back face */}
+            <Animated.View style={[styles.cardFace, styles.cardBack, backOpacity]}>{backFace}</Animated.View>
+
+            {/* Tap to flip overlay - only when not flipped and is top card */}
+            {isTop && !isFlipped && (
               <Pressable
-                onPress={() => speakWord(word.word)}
-                style={styles.speakerBtn}
-              >
-                <FontAwesome6 name="volume-high" size={15} color="#6C63FF" />
-                <Text style={styles.speakerText}>听发音</Text>
-              </Pressable>
+                style={StyleSheet.absoluteFill}
+                onPress={handleFlip}
+              />
             )}
-            <Text style={styles.tapHint}>点击卡片翻转查看释义</Text>
-          </View>
-
-          {/* Swipe overlays */}
-          <Animated.View style={[styles.swipeOverlay, rightOverlayStyle]}>
-            <View style={styles.overlayCircle}>
-              <FontAwesome6 name="check" size={32} color="#00B894" />
-            </View>
-            <Text style={[styles.overlayText, { color: '#00B894' }]}>认识</Text>
-          </Animated.View>
-
-          <Animated.View style={[styles.swipeOverlay, leftOverlayStyle]}>
-            <View style={styles.overlayCircle}>
-              <FontAwesome6 name="xmark" size={32} color="#FF6B6B" />
-            </View>
-            <Text style={[styles.overlayText, { color: '#FF6B6B' }]}>不认识</Text>
-          </Animated.View>
-        </Animated.View>
-
-        {/* Back face */}
-        <Animated.View style={[styles.cardFace, styles.cardBack, backOpacity]}>
-          <View style={styles.backContent}>
-            <Text style={styles.backWord}>{word.word}</Text>
-            <Text style={styles.backPhonetic}>{word.phonetic}</Text>
-            <Pressable
-              onPress={() => speakWord(word.word)}
-              style={styles.speakerBtn}
-            >
-              <FontAwesome6 name="volume-high" size={15} color="#6C63FF" />
-              <Text style={styles.speakerText}>听发音</Text>
-            </Pressable>
-            <View style={styles.divider} />
-            <Text style={styles.backPos}>{word.pos}</Text>
-            <Text style={styles.backMeaning}>{word.meaning}</Text>
-            <View style={styles.exampleBox}>
-              <Text style={styles.exampleText}>{word.example || (isTop ? '正在生成例句...' : '')}</Text>
-              <Text style={styles.exampleCnText}>{word.exampleCn}</Text>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* Tap to flip overlay - only when not flipped and is top card */}
-        {isTop && !isFlipped && (
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={handleFlip}
-          />
+          </>
         )}
       </Animated.View>
     </GestureDetector>
@@ -355,16 +507,29 @@ export default function LearnScreen() {
     }
   }, [currentIndex, words.length]);
 
-  const handleKnown = useCallback(() => {
+  const [splitTrigger, setSplitTrigger] = useState(0);
+
+  const triggerSplit = useCallback(() => {
     if (isAnimating) return;
     const word = words[currentIndex];
     if (!word) return;
     setIsAnimating(true);
-    setSessionCount((c) => c + 1);
-    recordWord(word.id, currentListId, 'known');
+    setSplitTrigger((c) => c + 1);
+  }, [words, currentIndex, isAnimating]);
+
+  const commitKnown = useCallback(() => {
+    const word = words[currentIndex];
+    if (word) {
+      setSessionCount((c) => c + 1);
+      recordWord(word.id, currentListId, 'known');
+    }
     handleNext();
-    setTimeout(() => setIsAnimating(false), 300);
-  }, [words, currentIndex, handleNext, currentListId, isAnimating]);
+    setIsAnimating(false);
+  }, [words, currentIndex, handleNext, currentListId]);
+
+  const handleKnown = useCallback(() => {
+    triggerSplit();
+  }, [triggerSplit]);
 
   const handleUnknown = useCallback(() => {
     if (isAnimating) return;
@@ -458,8 +623,11 @@ export default function LearnScreen() {
                 key={`${word.id}-${currentIndex + index}`}
                 word={word}
                 onSwipeLeft={handleUnknown}
-                onSwipeRight={handleKnown}
+                onSwipeRight={commitKnown}
                 isTop={index === visibleWords.length - 1}
+                splitTrigger={splitTrigger}
+                onSplitStart={() => setIsAnimating(true)}
+                underReveal={index === 0}
               />
             ))}
           </View>
@@ -513,6 +681,39 @@ export default function LearnScreen() {
 
 const styles = StyleSheet.create({
   gestureRoot: { flex: 1 },
+  halfContainer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  halfLeft: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: '50%',
+    overflow: 'hidden',
+  },
+  halfRight: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '50%',
+    overflow: 'hidden',
+  },
+  halfInner: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: CARD_WIDTH,
+    height: '100%',
+  },
+  halfInnerRight: {
+    left: -CARD_WIDTH / 2,
+  },
+  flashLayer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#FFFFFF',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F0F0F3',
