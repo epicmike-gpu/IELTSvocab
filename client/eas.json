@@ -1,11 +1,10 @@
 {
   "cli": {
     "version": ">= 13.0.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "production": {
-      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_BACKEND_BASE_URL": "https://www.ieltsmobile.top"
       },

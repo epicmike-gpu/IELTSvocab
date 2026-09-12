@@ -11,7 +11,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     "name": appName,
     "slug": slugAppName,
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
@@ -26,7 +26,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.mikelu.ieltsvocab",
-      "buildNumber": "1.0.0",
+      "buildNumber": "1.0.15",
       "infoPlist": {
         "CFBundleDisplayName": "闪词100分",
         "ITSAppUsesNonExemptEncryption": false

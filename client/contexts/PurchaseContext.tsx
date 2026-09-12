@@ -20,6 +20,7 @@ export const MATERIALS: MaterialInfo[] = [
   { id: 'ielts_random', productId: 'com.mikelu.ieltsvocab.random', name: '完整 8000 词（乱序版）', price: 6, isFree: false },
   { id: 'ielts_frequency', name: '完整 8000 词（词频排序版）', price: 6, isFree: false },
   { id: 'ielts_root', name: '完整 8000 词（词根归类版）', price: 6, isFree: false },
+  { id: 'chinese_core', productId: 'com.mikelu.ieltsvocab.chinese', name: '中文 2500 词（汉英版）', price: 6, isFree: false },
 ];
 
 const STORAGE_KEY = 'purchased_materials';

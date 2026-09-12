@@ -61,11 +61,12 @@ function loadWordListFromFile(filePath: string): WordList | null {
   }
 }
 
-// Load IELTS 8000 word lists
+// Load IELTS 8000 + Chinese word lists
 const ieltsSequential = loadWordListFromFile(path.join(DATA_DIR, 'ielts_sequential.json'));
 const ieltsRandom = loadWordListFromFile(path.join(DATA_DIR, 'ielts_random.json'));
 const ieltsFrequency = loadWordListFromFile(path.join(DATA_DIR, 'ielts_frequency.json'));
 const ieltsRoot = loadWordListFromFile(path.join(DATA_DIR, 'ielts_root.json'));
+const chineseCore = loadWordListFromFile(path.join(DATA_DIR, 'chinese_core.json'));
 
 // ── Word Lists Data ──────────────────────────────────────────────
 
@@ -261,6 +262,9 @@ if (ieltsFrequency) {
 }
 if (ieltsRoot) {
   WORD_LISTS.push(ieltsRoot);
+}
+if (chineseCore) {
+  WORD_LISTS.push(chineseCore);
 }
 
 // ── In-memory state (per list) ───────────────────────────────────

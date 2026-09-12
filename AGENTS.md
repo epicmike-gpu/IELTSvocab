@@ -304,6 +304,8 @@ import { Screen } from '../../../components/Screen';
 - ASC API 注意：`/v1/apps/{id}/inAppPurchases` 返回的 UUID 是旧版 ID，与 v2 接口不通用；v2 数字 ID 走 `/v1/apps/{id}/inAppPurchasesV2` 获取
 - 购买态持久化在 AsyncStorage（STORAGE_KEY=purchased_materials）；恢复购买走 getAvailablePurchases
 - **IAP 无法在 web 预览测试**，必须 EAS Build 出真机包 + 沙盒测试账号验证
+- **中文 IAP（2026-09 新增）**：词库 id=`chinese_core`（`server/data/chinese_core.json`，生成脚本 `server/scripts/generate-chinese.ts`，跑批用 `MAX_WORDS=2500 npx tsx scripts/generate-chinese.ts`，支持断点续跑/每 50 词 checkpoint）；productId=`com.mikelu.ieltsvocab.chinese`，名称「中文 2500 词（汉英版）」，¥6 非消耗型。字段映射零改卡片 UI：word=汉字 / phonetic=拼音 / meaning=英文释义 / example=中文例句 / exampleCn=英文翻译。**生成管线两大坑**：① coze-coding-dev-sdk 的 LLMClient 调用是 `client.invoke([{role,content},...], {model, temperature})` 位置参数（不是 chat.completions）；② 模型对超高频词倾向把 example 写成英文并丢 exampleEn，脚本内含 CJK 校验+带纠错反馈的重试，skip 率≈2%，重跑脚本即自动补齐。命名避开 HSK 商标（汉办注册，同 IELTS 道理）
+- **ASC API 只开放 IAP 的列表/详情**（GET /v1/apps/{id}/inAppPurchases(V2)），创建/定价/本地化子路径全部 404——新建 IAP 必须手工在 ASC 网页操作
 
 ## EAS 构建与上架
 
