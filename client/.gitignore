@@ -4,3 +4,6 @@
 
 expo-env.d.ts
 # @end expo-cli
+# CNG: generated native project, do not commit
+ios/
+android/
