@@ -1,6 +1,9 @@
+import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LogBox } from 'react-native';
+import * as Updates from 'expo-updates';
 import Toast from 'react-native-toast-message';
 import { Provider } from '@/components/Provider';
 import { PurchaseProvider } from '@/contexts/PurchaseContext';
@@ -13,6 +16,18 @@ LogBox.ignoreLogs([
 ]);
 
 export default function RootLayout() {
+  useEffect(() => {
+    if (__DEV__ || Platform.OS === 'web' || !Updates.isEnabled) return;
+    Updates.checkForUpdateAsync()
+      .then(async (res) => {
+        if (res.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <Provider>
       <PurchaseProvider>

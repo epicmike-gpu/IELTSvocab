@@ -30,7 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.mikelu.ieltsvocab",
-      "buildNumber": "1.0.16",
+      "buildNumber": "1.0.17",
       "infoPlist": {
         "CFBundleDisplayName": "闪词100分",
         "ITSAppUsesNonExemptEncryption": false
