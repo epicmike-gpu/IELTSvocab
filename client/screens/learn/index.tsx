@@ -145,6 +145,8 @@ function WordCard({
   // split-card state
   const [splitting, setSplitting] = useState(false);
   const splittingRef = useRef(false);
+  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (commitTimerRef.current) clearTimeout(commitTimerRef.current); }, []);
   const lastTriggerRef = useRef(splitTrigger);
   const halfLX = useSharedValue(0);
   const halfLY = useSharedValue(0);
@@ -157,10 +159,12 @@ function WordCard({
   const boltP = useSharedValue(0);
   const flashOp = useSharedValue(0);
   const shakeX = useSharedValue(0);
-
   const triggerImpact = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
   }, []);
+
+  const propsRef = useRef({ onSwipeRight });
+  propsRef.current = { onSwipeRight };
 
   const startSplit = useCallback(() => {
     if (splittingRef.current || !isTop) return;
@@ -191,10 +195,11 @@ function WordCard({
     halfRY.value = withDelay(205, withTiming(56, fly));
     halfRRot.value = withDelay(205, withTiming(14, fly));
     halfROp.value = withDelay(340, withTiming(0, { duration: 260 }));
-    withDelay(650, withTiming(1, { duration: 1 }, (finished) => {
-      if (finished) runOnJS(onSwipeRight)();
-    }));
-  }, [isTop, onSwipeRight, onSplitStart, triggerImpact, translateX, translateY, boltP, flashOp, shakeX, halfLX, halfLY, halfLRot, halfLOp, halfRX, halfRY, halfRRot, halfROp]);
+    commitTimerRef.current = setTimeout(() => {
+      splittingRef.current = false;
+      propsRef.current.onSwipeRight();
+    }, 660);
+  }, [isTop, onSplitStart, triggerImpact, translateX, translateY, boltP, flashOp, shakeX, halfLX, halfLY, halfLRot, halfLOp, halfRX, halfRY, halfRRot, halfROp]);
 
   useEffect(() => {
     if (splitTrigger !== lastTriggerRef.current) {
@@ -515,7 +520,7 @@ export default function LearnScreen() {
     if (!word) return;
     setIsAnimating(true);
     setSplitTrigger((c) => c + 1);
-  }, [words, currentIndex, isAnimating]);
+  }, [words, currentIndex, isAnimating, splitTrigger]);
 
   const commitKnown = useCallback(() => {
     const word = words[currentIndex];
