@@ -321,7 +321,10 @@ import { Screen } from '../../../components/Screen';
 ## OTA 热更新工作流（2026-09 接入 expo-updates）
 
 - **用户高频迭代 UI/词表排序的正式渠道是 OTA，不是每次 EAS 构建**：JS 层改动（组件、样式、逻辑、文案）→ 提交后 `env -u COZE_* EXPO_TOKEN=... npx eas-cli update --branch production -m "msg"` 秒级推送，用户 TestFlight 杀 App 重开即见真机效果
-- 基础设施：expo-updates 插件 + `"runtimeVersion": { "policy": "appVersion" }`（app.config.ts）+ production profile `"channel": "production"`（eas.json）；1.0.16(16) 是第一个内嵌 OTA 的包，之前的包收不到 update
+- 基础设施：expo-updates 插件 + `"runtimeVersion": { "policy": "appVersion" }`（app.config.ts）+ production profile `"channel": "production"`（eas.json）+ `updates.url`（app.config.ts，必填）；1.0.17(17) 是第一个真正具备 OTA 的包
+- **⚠️ 1.0.15 及之前无 OTA 模块，1.0.16(16) 的 Expo.plist 里 EXUpdatesEnabled=False（构建时缺 updates.url 导致插件显式禁用），都是哑包，永远收不到 update，勿再向其推 update**
+- **OTA 排障标准路径**：① 查 update 是否在服务器（`eas update:list --branch production`）；② 解包 IPA 查 `Payload/<app>.app/Expo.plist`（注意：是 .app 根目录的 Expo.plist，不是 Info.plist 也不是 Supporting/ 路径；SDK 54 expo-updates v29 用 Expo.plist 的 EXUpdatesEnabled/EXUpdatesURL/EXUpdatesRequestHeaders(expo-channel-name)/EXUpdatesRuntimeVersion），可用 HTTP Range 只下载 zip 中央目录+目标条目（IPA 几十 MB，直接下载会超时）；③ expo config --type prebuild 本地比对
+- 1.0.17(17) 内置启动自动应用更新逻辑（app/_layout.tsx：checkForUpdateAsync → fetchUpdateAsync → reloadAsync），**用户杀一次 App 即生效**，无需杀两次
 - **需要重新 EAS 构建的场景**：原生依赖增删、图标/启动图、app.config 权限/插件变更、runtimeVersion 变化（即 version bump 也会切断旧 OTA 兼容）；构建后 buildNumber 手动 +1（已移除 autoIncrement——它与 app.config.ts 动态配置不兼容报错）
 - eas update 前确认本地未提交的 JS 改动就是要发的；发错可用 `eas update:republish --branch production` 回滚到上一组
 - 沙箱无全局 eas-cli：一律 `npx eas-cli`，且必须 `env -u COZE_PROJECT_ID -u COZE_PROJECT_NAME -u EXPO_PUBLIC_COZE_PROJECT_ID -u EXPO_PUBLIC_COZE_PROJECT_NAME EXPO_TOKEN=...` 前缀
