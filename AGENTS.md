@@ -318,6 +318,14 @@ import { Screen } from '../../../components/Screen';
 - ASC API 私钥 `client/AuthKey_QG9DS2MQDM.p8`（gitignored）；ASC App ID 6799824519；EAS projectId 9c888b19-d938-4d6a-bce9-37e98f9888ee
 - App 无登录系统：App Store / TestFlight 表单里的 "Sign-in required" 一律不勾
 
+## OTA 热更新工作流（2026-09 接入 expo-updates）
+
+- **用户高频迭代 UI/词表排序的正式渠道是 OTA，不是每次 EAS 构建**：JS 层改动（组件、样式、逻辑、文案）→ 提交后 `env -u COZE_* EXPO_TOKEN=... npx eas-cli update --branch production -m "msg"` 秒级推送，用户 TestFlight 杀 App 重开即见真机效果
+- 基础设施：expo-updates 插件 + `"runtimeVersion": { "policy": "appVersion" }`（app.config.ts）+ production profile `"channel": "production"`（eas.json）；1.0.16(16) 是第一个内嵌 OTA 的包，之前的包收不到 update
+- **需要重新 EAS 构建的场景**：原生依赖增删、图标/启动图、app.config 权限/插件变更、runtimeVersion 变化（即 version bump 也会切断旧 OTA 兼容）；构建后 buildNumber 手动 +1（已移除 autoIncrement——它与 app.config.ts 动态配置不兼容报错）
+- eas update 前确认本地未提交的 JS 改动就是要发的；发错可用 `eas update:republish --branch production` 回滚到上一组
+- 沙箱无全局 eas-cli：一律 `npx eas-cli`，且必须 `env -u COZE_PROJECT_ID -u COZE_PROJECT_NAME -u EXPO_PUBLIC_COZE_PROJECT_ID -u EXPO_PUBLIC_COZE_PROJECT_NAME EXPO_TOKEN=...` 前缀
+
 ## 商标合规（2026-09 审核 4.1(a) 整改）
 
 - **IELTS/雅思 是 British Council/IDP/Cambridge 注册商标，个人无法获得授权**：App Store 元数据与 App 内可见文案一律不得出现"雅思/IELTS"，否则 4.1(a) Copycats 拒审

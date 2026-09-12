@@ -23,10 +23,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       }
     },
     "newArchEnabled": true,
+    "runtimeVersion": { "policy": "appVersion" },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.mikelu.ieltsvocab",
-      "buildNumber": "1.0.15",
+      "buildNumber": "1.0.16",
       "infoPlist": {
         "CFBundleDisplayName": "闪词100分",
         "ITSAppUsesNonExemptEncryption": false
@@ -45,6 +46,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "expo-updates",
       process.env.EXPO_PUBLIC_BACKEND_BASE_URL ? [
         "expo-router",
         {
