@@ -50,6 +50,21 @@ async function preloadZapSound() {
     zapSound = null;
   }
 }
+let flipSound: Audio.Sound | null = null;
+async function preloadFlipSound() {
+  if (flipSound) return;
+  try {
+    const { sound } = await Audio.Sound.createAsync(
+      require('../../assets/sounds/flip.wav'),
+    );
+    flipSound = sound;
+  } catch {
+    flipSound = null;
+  }
+}
+function playFlip() {
+  flipSound?.replayAsync().catch(() => undefined);
+}
 function playZap() {
   zapSound?.replayAsync().catch(() => undefined);
 }
@@ -324,6 +339,7 @@ function WordCard({
 
   const handleFlip = useCallback(() => {
     if (splitting) return;
+    playFlip();
     spinAnim.value = withTiming(90, { duration: 190, easing: Easing.in(Easing.ease) }, (finished) => {
       if (finished) runOnJS(doFlip)();
     });
@@ -485,6 +501,7 @@ export default function LearnScreen() {
 
   useEffect(() => {
     preloadZapSound();
+    preloadFlipSound();
   }, []);
 
   useEffect(() => {
