@@ -174,9 +174,12 @@ function WordCard({
     onSplitStart();
     translateX.value = withTiming(0, { duration: 100 });
     translateY.value = withTiming(0, { duration: 100 });
-    boltP.value = withDelay(110, withTiming(1, { duration: 90, easing: Easing.in(Easing.quad) }, (finished) => {
-      if (finished) runOnJS(triggerImpact)();
-    }));
+    boltP.value = withDelay(110, withSequence(
+      withTiming(1, { duration: 90, easing: Easing.in(Easing.quad) }, (finished) => {
+        if (finished) runOnJS(triggerImpact)();
+      }),
+      withTiming(0, { duration: 320 }),
+    ));
     flashOp.value = withDelay(200, withSequence(
       withTiming(0.9, { duration: 45 }),
       withTiming(0, { duration: 220 }),
@@ -191,11 +194,11 @@ function WordCard({
     halfLX.value = withDelay(205, withTiming(-130, fly));
     halfLY.value = withDelay(205, withTiming(56, fly));
     halfLRot.value = withDelay(205, withTiming(-14, fly));
-    halfLOp.value = withDelay(340, withTiming(0, { duration: 260 }));
+    halfLOp.value = withDelay(205, withTiming(0, { duration: 430, easing: Easing.in(Easing.quad) }));
     halfRX.value = withDelay(205, withTiming(130, fly));
     halfRY.value = withDelay(205, withTiming(56, fly));
     halfRRot.value = withDelay(205, withTiming(14, fly));
-    halfROp.value = withDelay(340, withTiming(0, { duration: 260 }));
+    halfROp.value = withDelay(205, withTiming(0, { duration: 430, easing: Easing.in(Easing.quad) }));
     commitTimerRef.current = setTimeout(() => {
       splittingRef.current = false;
       propsRef.current.onSwipeRight();
