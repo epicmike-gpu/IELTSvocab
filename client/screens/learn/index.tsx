@@ -29,6 +29,7 @@ import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWordList } from '@/contexts/WordListContext';
 import { getDeviceId } from '@/utils/deviceId';
+import { BACKEND_BASE_URL } from '@/utils/backend';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 64;
@@ -48,7 +49,7 @@ interface Word {
   root?: string;
 }
 
-const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
+const BASE_URL = BACKEND_BASE_URL;
 
 const difficultyLabel = (d: number) => {
   if (d === 1) return '基础';
@@ -589,7 +590,7 @@ export default function LearnScreen() {
             </Pressable>
             <Pressable onPress={async () => {
               try {
-                const baseUrl = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
+                const baseUrl = BACKEND_BASE_URL;
                 await fetch(`${baseUrl}/api/v1/learning/reset?listId=${currentListId}`, {
                   method: 'DELETE',
                   headers: { 'x-device-id': await getDeviceId() },

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { BACKEND_BASE_URL } from '@/utils/backend';
 
 export interface WordListInfo {
   id: string;
@@ -28,7 +29,7 @@ const WordListContext = createContext<WordListContextType>({
   refreshLists: async () => undefined,
 });
 
-const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
+const BASE_URL = BACKEND_BASE_URL;
 
 export function WordListProvider({ children }: { children: React.ReactNode }) {
   const [currentListId, setCurrentListId] = useState('core');

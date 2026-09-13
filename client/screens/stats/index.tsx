@@ -6,8 +6,9 @@ import { useFocusEffect } from 'expo-router';
 import { useWordList } from '@/contexts/WordListContext';
 import { usePurchase, MATERIALS, PurchaseCancelledError } from '@/contexts/PurchaseContext';
 import { getDeviceId } from '@/utils/deviceId';
+import { BACKEND_BASE_URL } from '@/utils/backend';
 
-const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
+const BASE_URL = BACKEND_BASE_URL;
 
 interface ProgressData {
   known: number;

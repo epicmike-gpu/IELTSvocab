@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { getDeviceId } from '@/utils/deviceId';
+import { BACKEND_BASE_URL } from '@/utils/backend';
 
 if (Platform.OS === 'web') {
   // @ts-ignore
@@ -25,7 +26,7 @@ if (Platform.OS === 'web') {
   }
 }
 
-const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
+const BASE_URL = BACKEND_BASE_URL;
 
 interface ReviewWord {
   id: number;
