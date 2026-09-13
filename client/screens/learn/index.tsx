@@ -21,6 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Path } from 'react-native-svg';
+import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -35,6 +36,23 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 64;
 const CARD_HEIGHT = SCREEN_HEIGHT * 0.50;
 const SWIPE_THRESHOLD = 120;
+
+let zapSound: Audio.Sound | null = null;
+async function preloadZapSound() {
+  if (zapSound) return;
+  try {
+    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, shouldPlayInSilentModeIOS: true });
+    const { sound } = await Audio.Sound.createAsync(
+      require('../../assets/sounds/lightning.wav'),
+    );
+    zapSound = sound;
+  } catch {
+    zapSound = null;
+  }
+}
+function playZap() {
+  zapSound?.replayAsync().catch(() => undefined);
+}
 
 interface Word {
   id: number;
@@ -162,6 +180,7 @@ function WordCard({
   const shakeX = useSharedValue(0);
   const triggerImpact = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
+    playZap();
   }, []);
 
   const propsRef = useRef({ onSwipeRight });
@@ -325,15 +344,14 @@ function WordCard({
         </Text>
         <Text style={styles.phoneticText}>{word.phonetic || (isTop ? '加载音标...' : '')}</Text>
         <Text style={styles.posText}>{word.pos}</Text>
-        {isTop && (
-          <Pressable
-            onPress={() => speakWord(word.word)}
-            style={styles.speakerBtn}
-          >
-            <FontAwesome6 name="volume-high" size={15} color="#6C63FF" />
-            <Text style={styles.speakerText}>听发音</Text>
-          </Pressable>
-        )}
+        <Pressable
+          onPress={() => speakWord(word.word)}
+          disabled={!isTop}
+          style={[styles.speakerBtn, !isTop && styles.speakerHidden]}
+        >
+          <FontAwesome6 name="volume-high" size={15} color="#6C63FF" />
+          <Text style={styles.speakerText}>听发音</Text>
+        </Pressable>
         <Text style={styles.tapHint}>点击卡片翻转查看释义</Text>
       </View>
 
@@ -451,6 +469,10 @@ export default function LearnScreen() {
       setLoading(false);
     }
   }, [currentListId]);
+
+  useEffect(() => {
+    preloadZapSound();
+  }, []);
 
   useEffect(() => {
     fetchWords();
@@ -845,6 +867,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginTop: 16,
     gap: 6,
+  },
+  speakerHidden: {
+    opacity: 0,
   },
   speakerText: {
     fontSize: 13,
