@@ -189,6 +189,11 @@ function WordCard({
   const startSplit = useCallback(() => {
     if (splittingRef.current || !isTop) return;
     splittingRef.current = true;
+    // 翻转态在 iOS 真机上劈卡渲染不可见，统一翻回正面劈
+    if (isFlipped) {
+      setIsFlipped(false);
+      flipProgress.value = 0;
+    }
     setSplitting(true);
     onSplitStart();
     translateX.value = withTiming(0, { duration: 100 });
@@ -222,7 +227,7 @@ function WordCard({
       splittingRef.current = false;
       propsRef.current.onSwipeRight();
     }, 660);
-  }, [isTop, onSplitStart, triggerImpact, translateX, translateY, boltP, flashOp, shakeX, halfLX, halfLY, halfLRot, halfLOp, halfRX, halfRY, halfRRot, halfROp]);
+  }, [isTop, isFlipped, onSplitStart, triggerImpact, translateX, translateY, flipProgress, boltP, flashOp, shakeX, halfLX, halfLY, halfLRot, halfLOp, halfRX, halfRY, halfRRot, halfROp]);
 
   useEffect(() => {
     if (splitTrigger !== lastTriggerRef.current) {
@@ -406,16 +411,12 @@ function WordCard({
           <Animated.View style={[styles.halfContainer, splitContainerStyle]}>
             <Animated.View style={[styles.halfLeft, leftHalfStyle]}>
               <View style={styles.halfInner} pointerEvents="none">
-                <Animated.View style={isFlipped ? [styles.cardFace, styles.cardBack] : styles.cardFace}>
-                  {isFlipped ? backFace : frontFace}
-                </Animated.View>
+                <Animated.View style={styles.cardFace}>{frontFace}</Animated.View>
               </View>
             </Animated.View>
             <Animated.View style={[styles.halfRight, rightHalfStyle]}>
               <View style={[styles.halfInner, styles.halfInnerRight]} pointerEvents="none">
-                <Animated.View style={isFlipped ? [styles.cardFace, styles.cardBack] : styles.cardFace}>
-                  {isFlipped ? backFace : frontFace}
-                </Animated.View>
+                <Animated.View style={styles.cardFace}>{frontFace}</Animated.View>
               </View>
             </Animated.View>
             <LightningBolt progress={boltP} />
