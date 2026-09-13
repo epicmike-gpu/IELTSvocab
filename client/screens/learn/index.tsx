@@ -41,7 +41,7 @@ let zapSound: Audio.Sound | null = null;
 async function preloadZapSound() {
   if (zapSound) return;
   try {
-    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, shouldPlayInSilentModeIOS: true });
+    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
     const { sound } = await Audio.Sound.createAsync(
       require('../../assets/sounds/lightning.wav'),
     );
@@ -155,10 +155,8 @@ function WordCard({
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const flipProgress = useSharedValue(0);
   useEffect(() => {
     setIsFlipped(false);
-    flipProgress.value = 0;
   }, [word.id]);
 
   // split-card state
@@ -192,7 +190,6 @@ function WordCard({
     // 翻转态在 iOS 真机上劈卡渲染不可见，统一翻回正面劈
     if (isFlipped) {
       setIsFlipped(false);
-      flipProgress.value = 0;
     }
     setSplitting(true);
     onSplitStart();
@@ -227,7 +224,7 @@ function WordCard({
       splittingRef.current = false;
       propsRef.current.onSwipeRight();
     }, 660);
-  }, [isTop, isFlipped, onSplitStart, triggerImpact, translateX, translateY, flipProgress, boltP, flashOp, shakeX, halfLX, halfLY, halfLRot, halfLOp, halfRX, halfRY, halfRRot, halfROp]);
+  }, [isTop, isFlipped, onSplitStart, triggerImpact, translateX, translateY, boltP, flashOp, shakeX, halfLX, halfLY, halfLRot, halfLOp, halfRX, halfRY, halfRRot, halfROp]);
 
   useEffect(() => {
     if (splitTrigger !== lastTriggerRef.current) {
@@ -311,22 +308,20 @@ function WordCard({
     opacity: flashOp.value,
   }));
 
-  const frontOpacity = useAnimatedStyle(() => ({
-    opacity: 1 - flipProgress.value,
-  }));
+  const frontOpacity = { opacity: isFlipped ? 0 : 1 };
 
-  const backOpacity = useAnimatedStyle(() => ({
-    opacity: flipProgress.value,
-  }));
+  const backOpacity = { opacity: isFlipped ? 1 : 0 };
 
   const handleFlip = () => {
-    const newVal = isFlipped ? 0 : 1;
-    flipProgress.value = withTiming(newVal, { duration: 300 });
     setIsFlipped(!isFlipped);
   };
 
   const frontFace = (
-    <>
+    <Pressable
+      onPress={handleFlip}
+      disabled={!isTop}
+      style={{ flex: 1 }}
+    >
       <View style={styles.difficultyBadge}>
         <View
           style={[
@@ -350,7 +345,10 @@ function WordCard({
         <Text style={styles.phoneticText}>{word.phonetic || (isTop ? '加载音标...' : '')}</Text>
         <Text style={styles.posText}>{word.pos}</Text>
         <Pressable
-          onPress={() => speakWord(word.word)}
+          onPress={(e) => {
+          e.stopPropagation();
+          speakWord(word.word);
+        }}
           disabled={!isTop}
           style={[styles.speakerBtn, !isTop && styles.speakerHidden]}
         >
@@ -374,15 +372,22 @@ function WordCard({
         </View>
         <Text style={[styles.overlayText, { color: '#FF6B6B' }]}>不认识</Text>
       </Animated.View>
-    </>
+    </Pressable>
   );
 
   const backFace = (
-    <View style={styles.backContent}>
+    <Pressable
+      onPress={handleFlip}
+      disabled={!isTop}
+      style={[styles.backContent, { flex: 1 }]}
+    >
       <Text style={styles.backWord}>{word.word}</Text>
       <Text style={styles.backPhonetic}>{word.phonetic}</Text>
       <Pressable
-        onPress={() => speakWord(word.word)}
+        onPress={(e) => {
+          e.stopPropagation();
+          speakWord(word.word);
+        }}
         style={styles.speakerBtn}
       >
         <FontAwesome6 name="volume-high" size={15} color="#6C63FF" />
@@ -395,7 +400,7 @@ function WordCard({
         <Text style={styles.exampleText}>{word.example || (isTop ? '正在生成例句...' : '')}</Text>
         <Text style={styles.exampleCnText}>{word.exampleCn}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 
   return (
@@ -424,19 +429,21 @@ function WordCard({
           </Animated.View>
         ) : (
           <>
-            {/* Front face */}
-            <Animated.View style={[styles.cardFace, frontOpacity]}>{frontFace}</Animated.View>
+            <Animated.View
+              style={[styles.cardFace, frontOpacity, { zIndex: isFlipped ? 0 : 2 }]}
+            >
+              <Pressable onPress={handleFlip} disabled={!isTop} style={StyleSheet.absoluteFill}>
+                {frontFace}
+              </Pressable>
+            </Animated.View>
 
-            {/* Back face */}
-            <Animated.View style={[styles.cardFace, styles.cardBack, backOpacity]}>{backFace}</Animated.View>
-
-            {/* Tap to flip (both directions) - only when top card */}
-            {isTop && (
-              <Pressable
-                style={StyleSheet.absoluteFill}
-                onPress={handleFlip}
-              />
-            )}
+            <Animated.View
+              style={[styles.cardFace, styles.cardBack, backOpacity, { zIndex: isFlipped ? 2 : 0 }]}
+            >
+              <Pressable onPress={handleFlip} disabled={!isTop} style={StyleSheet.absoluteFill}>
+                {backFace}
+              </Pressable>
+            </Animated.View>
           </>
         )}
       </Animated.View>
