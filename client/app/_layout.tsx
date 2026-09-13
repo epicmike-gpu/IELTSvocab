@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -16,16 +17,28 @@ LogBox.ignoreLogs([
 ]);
 
 export default function RootLayout() {
+  const lastCheckRef = useRef(0);
   useEffect(() => {
     if (__DEV__ || Platform.OS === 'web' || !Updates.isEnabled) return;
-    Updates.checkForUpdateAsync()
-      .then(async (res) => {
+    let checking = false;
+    const check = async () => {
+      if (checking || Date.now() - lastCheckRef.current < 60000) return;
+      checking = true;
+      lastCheckRef.current = Date.now();
+      try {
+        const res = await Updates.checkForUpdateAsync();
         if (res.isAvailable) {
           await Updates.fetchUpdateAsync();
           await Updates.reloadAsync();
         }
-      })
-      .catch(() => {});
+      } catch {}
+      checking = false;
+    };
+    check();
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') check();
+    });
+    return () => sub.remove();
   }, []);
 
   return (
