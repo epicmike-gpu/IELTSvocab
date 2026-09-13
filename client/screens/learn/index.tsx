@@ -232,7 +232,7 @@ function WordCard({
   }, [splitTrigger, isTop, startSplit]);
 
   const panGesture = Gesture.Pan()
-    .enabled(isTop && !isFlipped && !splitting)
+    .enabled(isTop && !splitting)
     .onUpdate((e) => {
       translateX.value = e.translationX;
       translateY.value = e.translationY * 0.3;
@@ -427,8 +427,8 @@ function WordCard({
             {/* Back face */}
             <Animated.View style={[styles.cardFace, styles.cardBack, backOpacity]}>{backFace}</Animated.View>
 
-            {/* Tap to flip overlay - only when not flipped and is top card */}
-            {isTop && !isFlipped && (
+            {/* Tap to flip (both directions) - only when top card */}
+            {isTop && (
               <Pressable
                 style={StyleSheet.absoluteFill}
                 onPress={handleFlip}
