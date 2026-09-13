@@ -157,6 +157,7 @@ function WordCard({
   const [isFlipped, setIsFlipped] = useState(false);
   useEffect(() => {
     setIsFlipped(false);
+    spinAnim.value = 0;
   }, [word.id]);
 
   // split-card state
@@ -190,6 +191,7 @@ function WordCard({
     // 翻转态在 iOS 真机上劈卡渲染不可见，统一翻回正面劈
     if (isFlipped) {
       setIsFlipped(false);
+      spinAnim.value = 0;
     }
     setSplitting(true);
     onSplitStart();
@@ -308,13 +310,24 @@ function WordCard({
     opacity: flashOp.value,
   }));
 
-  const frontOpacity = { opacity: isFlipped ? 0 : 1 };
+  const spinAnim = useSharedValue(0);
 
-  const backOpacity = { opacity: isFlipped ? 1 : 0 };
+  const cardSpinStyle = useAnimatedStyle(() => ({
+    transform: [{ perspective: 1000 }, { rotateY: `${spinAnim.value}deg` }],
+  }));
 
-  const handleFlip = () => {
-    setIsFlipped(!isFlipped);
-  };
+  const doFlip = useCallback(() => {
+    setIsFlipped((v) => !v);
+    spinAnim.value = -90;
+    spinAnim.value = withTiming(0, { duration: 240, easing: Easing.out(Easing.ease) });
+  }, []);
+
+  const handleFlip = useCallback(() => {
+    if (splitting) return;
+    spinAnim.value = withTiming(90, { duration: 190, easing: Easing.in(Easing.ease) }, (finished) => {
+      if (finished) runOnJS(doFlip)();
+    });
+  }, [splitting, doFlip]);
 
   const frontFace = (
     <Pressable
@@ -429,19 +442,9 @@ function WordCard({
           </Animated.View>
         ) : (
           <>
-            <Animated.View
-              style={[styles.cardFace, frontOpacity, { zIndex: isFlipped ? 0 : 2 }]}
-            >
+            <Animated.View style={[styles.cardFace, cardSpinStyle, { zIndex: 2 }]}>
               <Pressable onPress={handleFlip} disabled={!isTop} style={StyleSheet.absoluteFill}>
-                {frontFace}
-              </Pressable>
-            </Animated.View>
-
-            <Animated.View
-              style={[styles.cardFace, styles.cardBack, backOpacity, { zIndex: isFlipped ? 2 : 0 }]}
-            >
-              <Pressable onPress={handleFlip} disabled={!isTop} style={StyleSheet.absoluteFill}>
-                {backFace}
+                {isFlipped ? backFace : frontFace}
               </Pressable>
             </Animated.View>
           </>
