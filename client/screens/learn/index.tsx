@@ -406,14 +406,16 @@ function WordCard({
           <Animated.View style={[styles.halfContainer, splitContainerStyle]}>
             <Animated.View style={[styles.halfLeft, leftHalfStyle]}>
               <View style={styles.halfInner} pointerEvents="none">
-                <Animated.View style={[styles.cardFace, frontOpacity]}>{frontFace}</Animated.View>
-                <Animated.View style={[styles.cardFace, styles.cardBack, backOpacity]}>{backFace}</Animated.View>
+                <Animated.View style={isFlipped ? [styles.cardFace, styles.cardBack] : styles.cardFace}>
+                  {isFlipped ? backFace : frontFace}
+                </Animated.View>
               </View>
             </Animated.View>
             <Animated.View style={[styles.halfRight, rightHalfStyle]}>
               <View style={[styles.halfInner, styles.halfInnerRight]} pointerEvents="none">
-                <Animated.View style={[styles.cardFace, frontOpacity]}>{frontFace}</Animated.View>
-                <Animated.View style={[styles.cardFace, styles.cardBack, backOpacity]}>{backFace}</Animated.View>
+                <Animated.View style={isFlipped ? [styles.cardFace, styles.cardBack] : styles.cardFace}>
+                  {isFlipped ? backFace : frontFace}
+                </Animated.View>
               </View>
             </Animated.View>
             <LightningBolt progress={boltP} />
