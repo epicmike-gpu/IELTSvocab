@@ -264,6 +264,8 @@ import { Screen } from '../../../components/Screen';
 
 雅思单词学习 App，类似探探的卡片式交互。用户通过左右滑动卡片来标记"认识"或"不认识"，不认识的单词自动加入复习本。
 
+**闪电劈卡交互**（`client/screens/learn/index.tsx`）：右滑"认识"触发劈卡动画。每第 10 张卡（`(globalIdx+1) % 10 === 0`）触发 **epic 大雷变体**：`thunder.wav`（1.6s 合成雷声：crack+低频滚动轰鸣）替代 `lightning.wav`、闪电 240 宽加粗带分叉（普通 150 宽 4 path / epic 6 path）、闪光双拍（0.9→0.35→0.75→0）、震屏幅度 ×2、两半飞散 ±195。epic 分支由 `WordCard` 的 `epic` prop 控制（动画参数/声音/LightningBolt 共用）。音效单例模式：模块级变量 + `preloadXxxSound()`（mount 预加载）+ `playXxx()`（replayAsync）。
+
 ## 路由结构
 
 采用 Tabs 导航（3 个 Tab）：
