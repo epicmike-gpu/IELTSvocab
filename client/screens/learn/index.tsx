@@ -799,9 +799,9 @@ export default function LearnScreen() {
                 <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.glowRing, glowStyle]} />
               </View>
             </Animated.View>
-            <Text style={styles.doneTitle}>恭喜！全部学完 🎉</Text>
+            <Text style={styles.doneTitle}>All Done!</Text>
             <Text style={styles.doneSubtitle}>
-              本轮已学习 {sessionCount} 个单词，全部完成！
+              Learned {sessionCount} words this round
             </Text>
             <Pressable onPress={handleLoadMore} style={styles.doneBtnWrap}>
               <LinearGradient
@@ -1005,13 +1005,15 @@ const styles = StyleSheet.create({
   },
   cardFace: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 24,
+    borderRadius: 28,
     backgroundColor: '#FFFFFF',
-    shadowColor: 'rgba(108,99,255,0.25)',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 1,
-    shadowRadius: 24,
-    elevation: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(108,99,255,0.08)',
+    shadowColor: '#3A2F7A',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.22,
+    shadowRadius: 30,
+    elevation: 14,
     overflow: 'hidden',
   },
   cardBack: {
