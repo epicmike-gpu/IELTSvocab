@@ -68,6 +68,21 @@ function playFlip() {
 function playZap() {
   zapSound?.replayAsync().catch(() => undefined);
 }
+let thunderSound: Audio.Sound | null = null;
+async function preloadThunderSound() {
+  if (thunderSound) return;
+  try {
+    const { sound } = await Audio.Sound.createAsync(
+      require('../../assets/sounds/thunder.wav'),
+    );
+    thunderSound = sound;
+  } catch {
+    thunderSound = null;
+  }
+}
+function playThunder() {
+  thunderSound?.replayAsync().catch(() => undefined);
+}
 
 interface Word {
   id: number;
@@ -125,8 +140,9 @@ function getWordFontSize(word: string): number {
 }
 
 const BOLT_PATH = 'M 74 0 L 50 132 L 72 210 L 42 348 L 64 430 L 38 560';
+const BOLT_FORK_PATH = 'M 72 210 L 112 296 L 104 318';
 
-function LightningBolt({ progress }: { progress: SharedValue<number> }) {
+function LightningBolt({ progress, epic }: { progress: SharedValue<number>; epic: boolean }) {
   const boltStyle = useAnimatedStyle(() => ({
     transform: [
       { scaleY: Math.max(progress.value, 0.001) },
@@ -134,6 +150,24 @@ function LightningBolt({ progress }: { progress: SharedValue<number> }) {
     ],
     opacity: progress.value,
   }));
+
+  if (epic) {
+    return (
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }, boltStyle]}
+      >
+        <Svg width={240} height={CARD_HEIGHT} viewBox="0 0 150 560" preserveAspectRatio="xMidYMid slice">
+          <Path d={BOLT_PATH} stroke="rgba(108,99,255,0.45)" strokeWidth={52} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+          <Path d={BOLT_PATH} stroke="#FFD60A" strokeWidth={26} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+          <Path d={BOLT_PATH} stroke="#FFB800" strokeWidth={16} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+          <Path d={BOLT_PATH} stroke="#FFFFFF" strokeWidth={8} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+          <Path d={BOLT_FORK_PATH} stroke="#FFD60A" strokeWidth={15} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+          <Path d={BOLT_FORK_PATH} stroke="#FFFFFF" strokeWidth={5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        </Svg>
+      </Animated.View>
+    );
+  }
 
   return (
     <Animated.View
@@ -157,6 +191,7 @@ function WordCard({
   isTop,
   splitTrigger,
   underReveal,
+  epic,
   onSplitStart,
 }: {
   word: Word;
@@ -165,6 +200,7 @@ function WordCard({
   isTop: boolean;
   splitTrigger: number;
   underReveal: boolean;
+  epic: boolean;
   onSplitStart: () => void;
 }) {
   const translateX = useSharedValue(0);
@@ -194,8 +230,8 @@ function WordCard({
   const shakeX = useSharedValue(0);
   const triggerImpact = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
-    playZap();
-  }, []);
+    if (epic) playThunder(); else playZap();
+  }, [epic]);
 
   const propsRef = useRef({ onSwipeRight });
   propsRef.current = { onSwipeRight };
@@ -218,30 +254,49 @@ function WordCard({
       }),
       withTiming(0, { duration: 320 }),
     ));
-    flashOp.value = withDelay(200, withSequence(
-      withTiming(0.9, { duration: 45 }),
-      withTiming(0, { duration: 220 }),
-    ));
-    shakeX.value = withDelay(200, withSequence(
-      withTiming(-7, { duration: 40 }),
-      withTiming(6, { duration: 45 }),
-      withTiming(-3, { duration: 40 }),
-      withTiming(0, { duration: 30 }),
-    ));
+    if (epic) {
+      flashOp.value = withDelay(200, withSequence(
+        withTiming(1, { duration: 60 }),
+        withTiming(0.35, { duration: 90 }),
+        withTiming(0.75, { duration: 60 }),
+        withTiming(0, { duration: 340 }),
+      ));
+      shakeX.value = withDelay(200, withSequence(
+        withTiming(-16, { duration: 55 }),
+        withTiming(13, { duration: 55 }),
+        withTiming(-9, { duration: 50 }),
+        withTiming(7, { duration: 45 }),
+        withTiming(-4, { duration: 40 }),
+        withTiming(0, { duration: 35 }),
+      ));
+    } else {
+      flashOp.value = withDelay(200, withSequence(
+        withTiming(0.9, { duration: 45 }),
+        withTiming(0, { duration: 220 }),
+      ));
+      shakeX.value = withDelay(200, withSequence(
+        withTiming(-7, { duration: 40 }),
+        withTiming(6, { duration: 45 }),
+        withTiming(-3, { duration: 40 }),
+        withTiming(0, { duration: 30 }),
+      ));
+    }
+    const flyDist = epic ? 195 : 130;
+    const flyRot = epic ? 21 : 14;
     const fly = { duration: 430, easing: Easing.out(Easing.quad) };
-    halfLX.value = withDelay(205, withTiming(-130, fly));
-    halfLY.value = withDelay(205, withTiming(56, fly));
-    halfLRot.value = withDelay(205, withTiming(-14, fly));
+    halfLX.value = withDelay(205, withTiming(-flyDist, fly));
+    halfLY.value = withDelay(205, withTiming(epic ? 74 : 56, fly));
+    halfLRot.value = withDelay(205, withTiming(-flyRot, fly));
     halfLOp.value = withDelay(205, withTiming(0, { duration: 430, easing: Easing.in(Easing.quad) }));
-    halfRX.value = withDelay(205, withTiming(130, fly));
-    halfRY.value = withDelay(205, withTiming(56, fly));
-    halfRRot.value = withDelay(205, withTiming(14, fly));
+    halfRX.value = withDelay(205, withTiming(flyDist, fly));
+    halfRY.value = withDelay(205, withTiming(epic ? 74 : 56, fly));
+    halfRRot.value = withDelay(205, withTiming(flyRot, fly));
     halfROp.value = withDelay(205, withTiming(0, { duration: 430, easing: Easing.in(Easing.quad) }));
     commitTimerRef.current = setTimeout(() => {
       splittingRef.current = false;
       propsRef.current.onSwipeRight();
     }, 660);
-  }, [isTop, isFlipped, onSplitStart, triggerImpact, translateX, translateY, boltP, flashOp, shakeX, halfLX, halfLY, halfLRot, halfLOp, halfRX, halfRY, halfRRot, halfROp]);
+  }, [isTop, isFlipped, epic, onSplitStart, triggerImpact, translateX, translateY, boltP, flashOp, shakeX, halfLX, halfLY, halfLRot, halfLOp, halfRX, halfRY, halfRRot, halfROp]);
 
   useEffect(() => {
     if (splitTrigger !== lastTriggerRef.current) {
@@ -453,7 +508,7 @@ function WordCard({
                 <Animated.View style={styles.cardFace}>{frontFace}</Animated.View>
               </View>
             </Animated.View>
-            <LightningBolt progress={boltP} />
+            <LightningBolt progress={boltP} epic={epic} />
             <Animated.View pointerEvents="none" style={[styles.flashLayer, flashStyle]} />
           </Animated.View>
         ) : (
@@ -501,6 +556,7 @@ export default function LearnScreen() {
 
   useEffect(() => {
     preloadZapSound();
+    preloadThunderSound();
     preloadFlipSound();
   }, []);
 
@@ -679,18 +735,22 @@ export default function LearnScreen() {
 
           {/* Card Stack */}
           <View style={styles.cardStack}>
-            {visibleWords.map((word, index) => (
-              <WordCard
-                key={`${word.id}-${currentIndex + index}`}
-                word={word}
-                onSwipeLeft={handleUnknown}
-                onSwipeRight={commitKnown}
-                isTop={index === visibleWords.length - 1}
-                splitTrigger={splitTrigger}
-                onSplitStart={() => setIsAnimating(true)}
-                underReveal={index === 0}
-              />
-            ))}
+            {visibleWords.map((word, index) => {
+              const globalIdx = currentIndex + (visibleWords.length - 1 - index);
+              return (
+                <WordCard
+                  key={`${word.id}-${currentIndex + index}`}
+                  word={word}
+                  onSwipeLeft={handleUnknown}
+                  onSwipeRight={commitKnown}
+                  isTop={index === visibleWords.length - 1}
+                  splitTrigger={splitTrigger}
+                  onSplitStart={() => setIsAnimating(true)}
+                  underReveal={index === 0}
+                  epic={(globalIdx + 1) % 10 === 0}
+                />
+              );
+            })}
           </View>
 
           {/* Action Buttons */}
