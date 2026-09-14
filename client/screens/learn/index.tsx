@@ -10,6 +10,7 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withSpring,
   withTiming,
   withDelay,
@@ -20,7 +21,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
@@ -83,6 +84,23 @@ async function preloadThunderSound() {
 function playThunder() {
   thunderSound?.replayAsync().catch(() => undefined);
 }
+let achievementSound: Audio.Sound | null = null;
+async function preloadAchievementSound() {
+  if (achievementSound) return;
+  try {
+    const { sound } = await Audio.Sound.createAsync(
+      require('../../assets/sounds/achievement.wav'),
+    );
+    achievementSound = sound;
+  } catch {
+    achievementSound = null;
+  }
+}
+function playAchievement() {
+  achievementSound?.replayAsync().catch(() => undefined);
+}
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface Word {
   id: number;
@@ -209,6 +227,7 @@ function WordCard({
   useEffect(() => {
     setIsFlipped(false);
     spinAnim.value = 0;
+    containerOp.value = 1;
   }, [word.id]);
 
   // split-card state
@@ -220,14 +239,13 @@ function WordCard({
   const halfLX = useSharedValue(0);
   const halfLY = useSharedValue(0);
   const halfLRot = useSharedValue(0);
-  const halfLOp = useSharedValue(1);
   const halfRX = useSharedValue(0);
   const halfRY = useSharedValue(0);
   const halfRRot = useSharedValue(0);
-  const halfROp = useSharedValue(1);
   const boltP = useSharedValue(0);
   const flashOp = useSharedValue(0);
   const shakeX = useSharedValue(0);
+  const containerOp = useSharedValue(1);
   const triggerImpact = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
     if (epic) playThunder(); else playZap();
@@ -281,22 +299,24 @@ function WordCard({
         withTiming(0, { duration: 30 }),
       ));
     }
-    const flyDist = epic ? 195 : 130;
+    const flyDur = epic ? 640 : 430;
+    const flyDist = epic ? 210 : 130;
     const flyRot = epic ? 21 : 14;
-    const fly = { duration: 430, easing: Easing.out(Easing.quad) };
+    const flyY = epic ? 96 : 56;
+    const fly = { duration: flyDur, easing: Easing.out(Easing.quad) };
+    // 容器整体渐隐替代两半各自渐隐：露出的永远是 under 卡/背景，不会露出空白卡壳
+    containerOp.value = withDelay(205, withTiming(0, { duration: flyDur, easing: Easing.in(Easing.quad) }));
     halfLX.value = withDelay(205, withTiming(-flyDist, fly));
-    halfLY.value = withDelay(205, withTiming(epic ? 74 : 56, fly));
+    halfLY.value = withDelay(205, withTiming(flyY, fly));
     halfLRot.value = withDelay(205, withTiming(-flyRot, fly));
-    halfLOp.value = withDelay(205, withTiming(0, { duration: 430, easing: Easing.in(Easing.quad) }));
     halfRX.value = withDelay(205, withTiming(flyDist, fly));
-    halfRY.value = withDelay(205, withTiming(epic ? 74 : 56, fly));
+    halfRY.value = withDelay(205, withTiming(flyY, fly));
     halfRRot.value = withDelay(205, withTiming(flyRot, fly));
-    halfROp.value = withDelay(205, withTiming(0, { duration: 430, easing: Easing.in(Easing.quad) }));
     commitTimerRef.current = setTimeout(() => {
       splittingRef.current = false;
       propsRef.current.onSwipeRight();
-    }, 660);
-  }, [isTop, isFlipped, epic, onSplitStart, triggerImpact, translateX, translateY, boltP, flashOp, shakeX, halfLX, halfLY, halfLRot, halfLOp, halfRX, halfRY, halfRRot, halfROp]);
+    }, epic ? 920 : 660);
+  }, [isTop, isFlipped, epic, onSplitStart, triggerImpact, translateX, translateY, boltP, flashOp, shakeX, containerOp, halfLX, halfLY, halfLRot, halfRX, halfRY, halfRRot]);
 
   useEffect(() => {
     if (splitTrigger !== lastTriggerRef.current) {
@@ -364,7 +384,6 @@ function WordCard({
       { translateY: halfLY.value },
       { rotate: `${halfLRot.value}deg` },
     ],
-    opacity: halfLOp.value,
   }));
 
   const rightHalfStyle = useAnimatedStyle(() => ({
@@ -373,7 +392,10 @@ function WordCard({
       { translateY: halfRY.value },
       { rotate: `${halfRRot.value}deg` },
     ],
-    opacity: halfROp.value,
+  }));
+
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: containerOp.value,
   }));
 
   const flashStyle = useAnimatedStyle(() => ({
@@ -494,6 +516,7 @@ function WordCard({
           styles.card,
           isTop ? cardStyle : backCardStyle,
           { zIndex: isTop ? 10 : 1 },
+          containerStyle,
         ]}
       >
         {splitting ? (
@@ -536,6 +559,47 @@ export default function LearnScreen() {
   const insets = useSafeAreaInsets();
   const generatingRef = useRef<Set<number>>(new Set());
 
+  // 完成页奖杯充能
+  const chargeP = useSharedValue(0);
+  const trophyScale = useSharedValue(1);
+  const glowOp = useSharedValue(0);
+  const firedRef = useRef(false);
+  const RING_R = 40;
+  const RING_C = 2 * Math.PI * RING_R;
+  const ringProps = useAnimatedProps(() => ({
+    strokeDashoffset: (1 - chargeP.value) * RING_C,
+  }));
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOp.value,
+    transform: [{ scale: interpolate(glowOp.value, [0, 0.9], [0.75, 1.4], 'clamp') }],
+  }));
+  const trophyScaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: trophyScale.value }],
+  }));
+  useEffect(() => {
+    if (!allDone) {
+      firedRef.current = false;
+      return;
+    }
+    if (firedRef.current) return;
+    firedRef.current = true;
+    chargeP.value = 0;
+    chargeP.value = withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.quad) }, (finished) => {
+      if (!finished) return;
+      runOnJS(() => {
+        playAchievement();
+        trophyScale.value = withSequence(
+          withTiming(1.22, { duration: 140, easing: Easing.out(Easing.quad) }),
+          withSpring(1, { damping: 9 }),
+        );
+        glowOp.value = withSequence(
+          withTiming(0.9, { duration: 120 }),
+          withTiming(0, { duration: 700, easing: Easing.out(Easing.quad) }),
+        );
+      })();
+    });
+  }, [allDone, chargeP, trophyScale, glowOp]);
+
   const fetchWords = useCallback(async () => {
     setLoading(true);
     generatingRef.current.clear();
@@ -558,6 +622,7 @@ export default function LearnScreen() {
     preloadZapSound();
     preloadThunderSound();
     preloadFlipSound();
+    preloadAchievementSound();
   }, []);
 
   useEffect(() => {
@@ -683,7 +748,25 @@ export default function LearnScreen() {
         <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
           <View style={styles.doneCard}>
             <View style={styles.doneIconWrap}>
-              <FontAwesome6 name="trophy" size={48} color="#6C63FF" />
+              <Svg width={88} height={88} style={StyleSheet.absoluteFill}>
+                <Circle cx={44} cy={44} r={RING_R} stroke="rgba(108,99,255,0.14)" strokeWidth={6} fill="none" />
+                <AnimatedCircle
+                  cx={44}
+                  cy={44}
+                  r={RING_R}
+                  stroke="#6C63FF"
+                  strokeWidth={6}
+                  fill="none"
+                  strokeDasharray={RING_C}
+                  strokeLinecap="round"
+                  transform="rotate(-90 44 44)"
+                  animatedProps={ringProps}
+                />
+              </Svg>
+              <Animated.View style={trophyScaleStyle}>
+                <FontAwesome6 name="trophy" size={44} color="#6C63FF" />
+              </Animated.View>
+              <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.glowRing, glowStyle]} />
             </View>
             <Text style={styles.doneTitle}>恭喜！全部学完 🎉</Text>
             <Text style={styles.doneSubtitle}>
@@ -1123,6 +1206,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  glowRing: {
+    borderRadius: 44,
+    borderWidth: 3,
+    borderColor: 'rgba(108,99,255,0.55)',
   },
   doneTitle: {
     fontSize: 24,

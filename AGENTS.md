@@ -264,7 +264,9 @@ import { Screen } from '../../../components/Screen';
 
 雅思单词学习 App，类似探探的卡片式交互。用户通过左右滑动卡片来标记"认识"或"不认识"，不认识的单词自动加入复习本。
 
-**闪电劈卡交互**（`client/screens/learn/index.tsx`）：右滑"认识"触发劈卡动画。每第 10 张卡（`(globalIdx+1) % 10 === 0`）触发 **epic 大雷变体**：`thunder.wav`（1.6s 合成雷声：crack+低频滚动轰鸣）替代 `lightning.wav`、闪电 240 宽加粗带分叉（普通 150 宽 4 path / epic 6 path）、闪光双拍（0.9→0.35→0.75→0）、震屏幅度 ×2、两半飞散 ±195。epic 分支由 `WordCard` 的 `epic` prop 控制（动画参数/声音/LightningBolt 共用）。音效单例模式：模块级变量 + `preloadXxxSound()`（mount 预加载）+ `playXxx()`（replayAsync）。
+**闪电劈卡交互**（`client/screens/learn/index.tsx`）：右滑"认识"触发劈卡动画。每第 10 张卡（`(globalIdx+1) % 10 === 0`）触发 **epic 大雷变体**：`thunder.wav`（1.6s 合成雷声：crack+低频滚动轰鸣）替代 `lightning.wav`、闪电 240 宽加粗带分叉（普通 150 宽 4 path / epic 6 path）、闪光双拍（0.9→0.35→0.75→0）、震屏幅度 ×2、两半飞散更远更慢（普通 430ms/±130，epic 640ms/±210，commit timer 660/920ms）。**渐隐机制：容器整体渐隐（containerOp）替代两半各自渐隐**——两半飞散消失后不会露出空白卡壳（批次末尾卡下面没有 under 卡，此前会露出空卡容器 300ms+）；新卡复用组件时 useEffect[word.id] 必须 reset containerOp=1。epic 分支由 `WordCard` 的 `epic` prop 控制（动画参数/声音/LightningBolt 共用）。音效单例模式：模块级变量 + `preloadXxxSound()`（mount 预加载）+ `playXxx()`（replayAsync），含 flip/thunder/achievement。
+
+**完成页奖杯充能**（allDone 分支）：SVG 圆环（AnimatedCircle + useAnimatedProps 驱动 strokeDashoffset，周长 2π×40≈251.3）1.5s 从 0 充满，充满回调播放 `achievement.wav`（1.35s 上行琶音 C-E-G-C fanfare）+ 奖杯 spring 弹跳 + 光晕圈扩散（glowOp）。firedRef 防重复触发，allDone=false 时重置。
 
 ## 路由结构
 
