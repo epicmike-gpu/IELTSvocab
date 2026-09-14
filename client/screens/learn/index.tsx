@@ -6,6 +6,8 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
+  Animated as RNAnimated,
+  Easing as RNEasing,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -20,7 +22,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
@@ -98,6 +100,28 @@ async function preloadAchievementSound() {
 function playAchievement() {
   achievementSound?.replayAsync().catch(() => undefined);
 }
+let chargeSound: Audio.Sound | null = null;
+async function preloadChargeSound() {
+  if (chargeSound) return;
+  try {
+    const { sound } = await Audio.Sound.createAsync(
+      require('../../assets/sounds/charge.wav'),
+    );
+    chargeSound = sound;
+  } catch {
+    chargeSound = null;
+  }
+}
+function playCharge() {
+  chargeSound?.replayAsync().catch(() => undefined);
+}
+function stopCharge() {
+  chargeSound?.stopAsync().catch(() => undefined);
+}
+
+const AnimCircle = RNAnimated.createAnimatedComponent(Circle);
+const RING_R = 46;
+const RING_C = 2 * Math.PI * RING_R;
 
 interface Word {
   id: number;
@@ -556,15 +580,16 @@ export default function LearnScreen() {
   const insets = useSafeAreaInsets();
   const generatingRef = useRef<Set<number>>(new Set());
 
-  // 完成页奖杯液体填充充能
-  const ICON_WRAP = 88;
-  const fillP = useSharedValue(0);
+  // 完成页奖杯圆环充能（RN Animated 驱动 SVG，release 稳定）
+  const ICON_WRAP = 104;
+  const ringAnim = useRef(new RNAnimated.Value(0)).current;
   const trophyScale = useSharedValue(1);
   const glowOp = useSharedValue(0);
   const firedRef = useRef(false);
-  const fillStyle = useAnimatedStyle(() => ({
-    height: interpolate(fillP.value, [0, 1], [0, ICON_WRAP]),
-  }));
+  const ringOffset = ringAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [RING_C, 0],
+  });
   const glowStyle = useAnimatedStyle(() => ({
     opacity: glowOp.value,
     transform: [{ scale: interpolate(glowOp.value, [0, 0.9], [0.75, 1.4], 'clamp') }],
@@ -587,15 +612,23 @@ export default function LearnScreen() {
   useEffect(() => {
     if (!allDone) {
       firedRef.current = false;
+      stopCharge();
+      ringAnim.setValue(0);
       return;
     }
     if (firedRef.current) return;
     firedRef.current = true;
-    fillP.value = 0;
-    fillP.value = withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.quad) }, (finished) => {
-      if (finished) runOnJS(onChargeDone)();
+    ringAnim.setValue(0);
+    playCharge();
+    RNAnimated.timing(ringAnim, {
+      toValue: 1,
+      duration: 2600,
+      easing: RNEasing.inOut(RNEasing.quad),
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) onChargeDone();
     });
-  }, [allDone, fillP, onChargeDone]);
+  }, [allDone, ringAnim, onChargeDone]);
 
   const fetchWords = useCallback(async () => {
     setLoading(true);
@@ -620,6 +653,7 @@ export default function LearnScreen() {
     preloadThunderSound();
     preloadFlipSound();
     preloadAchievementSound();
+    preloadChargeSound();
   }, []);
 
   useEffect(() => {
@@ -745,13 +779,23 @@ export default function LearnScreen() {
         <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
           <View style={styles.doneCard}>
             <Animated.View style={trophyScaleStyle}>
-              <View style={[styles.doneIconWrap, { overflow: 'hidden' }]}>
-                <FontAwesome6 name="trophy" size={44} color="#CBCBD8" />
-                <Animated.View style={[styles.fillLayer, fillStyle]}>
-                  <View style={styles.fillInner}>
-                    <FontAwesome6 name="trophy" size={44} color="#6C63FF" />
-                  </View>
-                </Animated.View>
+              <View style={styles.doneIconWrap}>
+                <Svg width={ICON_WRAP} height={ICON_WRAP} style={StyleSheet.absoluteFill}>
+                  <Circle cx={ICON_WRAP / 2} cy={ICON_WRAP / 2} r={RING_R} stroke="rgba(255,184,0,0.18)" strokeWidth={7} fill="none" />
+                  <AnimCircle
+                    cx={ICON_WRAP / 2}
+                    cy={ICON_WRAP / 2}
+                    r={RING_R}
+                    stroke="#FFB800"
+                    strokeWidth={7}
+                    strokeLinecap="round"
+                    fill="none"
+                    strokeDasharray={RING_C}
+                    strokeDashoffset={ringOffset}
+                    transform={`rotate(-90 ${ICON_WRAP / 2} ${ICON_WRAP / 2})`}
+                  />
+                </Svg>
+                <FontAwesome6 name="trophy" size={44} color="#FFB800" />
                 <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.glowRing, glowStyle]} />
               </View>
             </Animated.View>
@@ -1186,34 +1230,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 32,
   },
   doneIconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
     backgroundColor: 'rgba(108,99,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
   },
   glowRing: {
-    borderRadius: 44,
+    borderRadius: 52,
     borderWidth: 3,
-    borderColor: 'rgba(108,99,255,0.55)',
-  },
-  fillLayer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    overflow: 'hidden',
-  },
-  fillInner: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 88,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: 'rgba(255,184,0,0.55)',
   },
   doneTitle: {
     fontSize: 24,
