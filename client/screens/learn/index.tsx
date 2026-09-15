@@ -877,12 +877,12 @@ export default function LearnScreen() {
               ]}
             >
               <LinearGradient
-                colors={['#FF6B6B', '#FF8E8E']}
+                colors={['#5C6B8A', '#7E90B5']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.actionBtn}
               >
-                <FontAwesome6 name="xmark" size={28} color="#FFF" />
+                <FontAwesome6 name="cloud-showers-heavy" size={26} color="#FFF" />
               </LinearGradient>
             </Pressable>
 
@@ -894,12 +894,12 @@ export default function LearnScreen() {
               ]}
             >
               <LinearGradient
-                colors={['#00B894', '#2ED8A8']}
+                colors={['#F5A300', '#FFC94D']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.actionBtn}
               >
-                <FontAwesome6 name="check" size={28} color="#FFF" />
+                <FontAwesome6 name="bolt" size={30} color="#FFF" />
               </LinearGradient>
             </Pressable>
           </View>
