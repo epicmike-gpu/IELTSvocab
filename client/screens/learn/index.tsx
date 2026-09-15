@@ -231,8 +231,6 @@ function WordCard({
   splitTrigger,
   underReveal,
   epic,
-  extDragX,
-  extDragY,
   onSplitStart,
 }: {
   word: Word;
@@ -242,8 +240,6 @@ function WordCard({
   splitTrigger: number;
   underReveal: boolean;
   epic: boolean;
-  extDragX: SharedValue<number>;
-  extDragY: SharedValue<number>;
   onSplitStart: () => void;
 }) {
   const translateX = useSharedValue(0);
@@ -372,34 +368,34 @@ function WordCard({
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: translateX.value + extDragX.value },
-      { translateY: translateY.value + extDragY.value },
-      { rotate: `${(translateX.value + extDragX.value) * 0.08}deg` },
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { rotate: `${translateX.value * 0.08}deg` },
     ],
   }));
 
   const rightOverlayStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value + extDragX.value, [0, SWIPE_THRESHOLD], [0, 1], 'clamp'),
-    transform: [{ scale: interpolate(translateX.value + extDragX.value, [0, SWIPE_THRESHOLD], [0.8, 1], 'clamp') }],
+    opacity: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0, 1], 'clamp'),
+    transform: [{ scale: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0.8, 1], 'clamp') }],
   }));
 
   const leftOverlayStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value + extDragX.value, [-SWIPE_THRESHOLD, 0], [1, 0], 'clamp'),
-    transform: [{ scale: interpolate(translateX.value + extDragX.value, [-SWIPE_THRESHOLD, 0], [1, 0.8], 'clamp') }],
+    opacity: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0], 'clamp'),
+    transform: [{ scale: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0.8], 'clamp') }],
   }));
 
   const backCardStyle = useAnimatedStyle(() => ({
     transform: [
-      { scale: interpolate(Math.abs(translateX.value + extDragX.value), [0, SWIPE_THRESHOLD], [1, 0.95], 'clamp') },
+      { scale: interpolate(Math.abs(translateX.value), [0, SWIPE_THRESHOLD], [1, 0.95], 'clamp') },
     ],
-    opacity: underReveal ? 1 : interpolate(Math.abs(translateX.value + extDragX.value), [0, SWIPE_THRESHOLD], [0, 0.6], 'clamp'),
+    opacity: underReveal ? 1 : interpolate(Math.abs(translateX.value), [0, SWIPE_THRESHOLD], [0, 0.6], 'clamp'),
   }));
 
   const splitContainerStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: translateX.value + shakeX.value + extDragX.value },
-      { translateY: translateY.value + extDragY.value },
-      { rotate: `${(translateX.value + extDragX.value) * 0.08}deg` },
+      { translateX: translateX.value + shakeX.value },
+      { translateY: translateY.value },
+      { rotate: `${translateX.value * 0.08}deg` },
     ],
   }));
 
@@ -548,11 +544,13 @@ function WordCard({
           <Animated.View style={[styles.halfContainer, splitContainerStyle]}>
             <Animated.View style={[styles.halfLeft, leftHalfStyle]}>
               <View style={styles.halfInner} pointerEvents="none">
+                <View style={styles.cardShadowLayer} />
                 <Animated.View style={styles.cardFace}>{frontFace}</Animated.View>
               </View>
             </Animated.View>
             <Animated.View style={[styles.halfRight, rightHalfStyle]}>
               <View style={[styles.halfInner, styles.halfInnerRight]} pointerEvents="none">
+                <View style={styles.cardShadowLayer} />
                 <Animated.View style={styles.cardFace}>{frontFace}</Animated.View>
               </View>
             </Animated.View>
@@ -562,6 +560,7 @@ function WordCard({
         ) : (
           <>
             <Animated.View style={[styles.cardFace, cardSpinStyle, { zIndex: 2 }]}>
+              <View style={styles.cardShadowLayer} pointerEvents="none" />
               <Pressable onPress={handleFlip} disabled={!isTop} style={StyleSheet.absoluteFill}>
                 {isFlipped ? backFace : frontFace}
               </Pressable>
@@ -759,9 +758,12 @@ export default function LearnScreen() {
     setTimeout(() => setIsAnimating(false), 300);
   }, [words, currentIndex, handleNext, currentListId, isAnimating]);
 
-  // 按钮拖动联动卡片：从乌云按钮向左拖=不认识，从闪电按钮向右拖=认识
+  // 按钮自身跟手拖动：从乌云按钮向左拖=不认识，从闪电按钮向右拖=认识（卡片不联动）
   const btnDragX = useSharedValue(0);
   const btnDragY = useSharedValue(0);
+  const btnMoveStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: btnDragX.value }, { translateY: btnDragY.value }],
+  }));
   const unknownPan = Gesture.Pan()
     .enabled(!isAnimating && !loading && !allDone)
     .minDistance(12)
@@ -902,8 +904,6 @@ export default function LearnScreen() {
                   onSplitStart={() => setIsAnimating(true)}
                   underReveal={index === 0}
                   epic={(globalIdx + 1) % 10 === 0}
-                  extDragX={btnDragX}
-                  extDragY={btnDragY}
                 />
               );
             })}
@@ -912,41 +912,49 @@ export default function LearnScreen() {
           {/* Action Buttons */}
           <View style={styles.actionRow}>
             <GestureDetector gesture={unknownPan}>
-              <Pressable
-                onPress={handleUnknown}
-                style={({ pressed }) => [
-                  styles.actionBtnWrap,
-                  pressed && styles.actionBtnPressed,
-                ]}
-              >
-                <LinearGradient
-                  colors={['#5C6B8A', '#7E90B5']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.actionBtn, { boxShadow: '0px 10px 20px rgba(92, 107, 138, 0.4)' }]}
+              <Animated.View style={btnMoveStyle}>
+                <Pressable
+                  onPress={handleUnknown}
+                  style={({ pressed }) => [
+                    styles.actionBtnWrap,
+                    pressed && styles.actionBtnPressed,
+                  ]}
                 >
-                  <FontAwesome6 name="cloud-showers-heavy" size={26} color="#FFF" />
-                </LinearGradient>
-              </Pressable>
+                  <View style={styles.actionShadow}>
+                    <LinearGradient
+                      colors={['#5C6B8A', '#7E90B5']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.actionBtn}
+                    >
+                      <FontAwesome6 name="cloud-showers-heavy" size={26} color="#FFF" />
+                    </LinearGradient>
+                  </View>
+                </Pressable>
+              </Animated.View>
             </GestureDetector>
 
             <GestureDetector gesture={knownPan}>
-              <Pressable
-                onPress={handleKnown}
-                style={({ pressed }) => [
-                  styles.actionBtnWrap,
-                  pressed && styles.actionBtnPressed,
-                ]}
-              >
-                <LinearGradient
-                  colors={['#F5A300', '#FFC94D']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.actionBtn, { boxShadow: '0px 10px 20px rgba(245, 163, 0, 0.4)' }]}
+              <Animated.View style={btnMoveStyle}>
+                <Pressable
+                  onPress={handleKnown}
+                  style={({ pressed }) => [
+                    styles.actionBtnWrap,
+                    pressed && styles.actionBtnPressed,
+                  ]}
                 >
-                  <FontAwesome6 name="bolt" size={30} color="#FFF" />
-                </LinearGradient>
-              </Pressable>
+                  <View style={styles.actionShadow}>
+                    <LinearGradient
+                      colors={['#F5A300', '#FFC94D']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.actionBtn}
+                    >
+                      <FontAwesome6 name="bolt" size={30} color="#FFF" />
+                    </LinearGradient>
+                  </View>
+                </Pressable>
+              </Animated.View>
             </GestureDetector>
           </View>
 
@@ -1053,11 +1061,20 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 28,
     backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  // 阴影由静态底板承载（挂 reanimated Animated.View 上真机不渲染；boxShadow 会屏蔽 legacy shadow，故只留 legacy）
+  cardShadowLayer: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: 'rgba(108,99,255,0.16)',
-    boxShadow: '0px 18px 30px rgba(58, 47, 122, 0.28)',
+    shadowColor: '#2B2350',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
     elevation: 14,
-    overflow: 'hidden',
   },
   cardBack: {
     shadowColor: 'rgba(108,99,255,0.15)',
@@ -1241,17 +1258,21 @@ const styles = StyleSheet.create({
   },
   actionBtnWrap: {},
   actionBtnPressed: { opacity: 0.85, transform: [{ scale: 0.95 }] },
+  // 按钮阴影挂在静态外壳 View 上（LinearGradient 原生实现不透传；只留 legacy shadow）
+  actionShadow: {
+    borderRadius: 32,
+    shadowColor: '#2B2350',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 12,
+  },
   actionBtn: {
     width: 64,
     height: 64,
     borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
   },
   hintText: {
     fontSize: 13,
