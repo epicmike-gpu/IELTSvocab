@@ -231,6 +231,8 @@ function WordCard({
   splitTrigger,
   underReveal,
   epic,
+  extDragX,
+  extDragY,
   onSplitStart,
 }: {
   word: Word;
@@ -240,6 +242,8 @@ function WordCard({
   splitTrigger: number;
   underReveal: boolean;
   epic: boolean;
+  extDragX: SharedValue<number>;
+  extDragY: SharedValue<number>;
   onSplitStart: () => void;
 }) {
   const translateX = useSharedValue(0);
@@ -368,34 +372,34 @@ function WordCard({
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { rotate: `${translateX.value * 0.08}deg` },
+      { translateX: translateX.value + extDragX.value },
+      { translateY: translateY.value + extDragY.value },
+      { rotate: `${(translateX.value + extDragX.value) * 0.08}deg` },
     ],
   }));
 
   const rightOverlayStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0, 1], 'clamp'),
-    transform: [{ scale: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0.8, 1], 'clamp') }],
+    opacity: interpolate(translateX.value + extDragX.value, [0, SWIPE_THRESHOLD], [0, 1], 'clamp'),
+    transform: [{ scale: interpolate(translateX.value + extDragX.value, [0, SWIPE_THRESHOLD], [0.8, 1], 'clamp') }],
   }));
 
   const leftOverlayStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0], 'clamp'),
-    transform: [{ scale: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0.8], 'clamp') }],
+    opacity: interpolate(translateX.value + extDragX.value, [-SWIPE_THRESHOLD, 0], [1, 0], 'clamp'),
+    transform: [{ scale: interpolate(translateX.value + extDragX.value, [-SWIPE_THRESHOLD, 0], [1, 0.8], 'clamp') }],
   }));
 
   const backCardStyle = useAnimatedStyle(() => ({
     transform: [
-      { scale: interpolate(Math.abs(translateX.value), [0, SWIPE_THRESHOLD], [1, 0.95], 'clamp') },
+      { scale: interpolate(Math.abs(translateX.value + extDragX.value), [0, SWIPE_THRESHOLD], [1, 0.95], 'clamp') },
     ],
-    opacity: underReveal ? 1 : interpolate(Math.abs(translateX.value), [0, SWIPE_THRESHOLD], [0, 0.6], 'clamp'),
+    opacity: underReveal ? 1 : interpolate(Math.abs(translateX.value + extDragX.value), [0, SWIPE_THRESHOLD], [0, 0.6], 'clamp'),
   }));
 
   const splitContainerStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: translateX.value + shakeX.value },
-      { translateY: translateY.value },
-      { rotate: `${translateX.value * 0.08}deg` },
+      { translateX: translateX.value + shakeX.value + extDragX.value },
+      { translateY: translateY.value + extDragY.value },
+      { rotate: `${(translateX.value + extDragX.value) * 0.08}deg` },
     ],
   }));
 
@@ -755,6 +759,42 @@ export default function LearnScreen() {
     setTimeout(() => setIsAnimating(false), 300);
   }, [words, currentIndex, handleNext, currentListId, isAnimating]);
 
+  // 按钮拖动联动卡片：从乌云按钮向左拖=不认识，从闪电按钮向右拖=认识
+  const btnDragX = useSharedValue(0);
+  const btnDragY = useSharedValue(0);
+  const unknownPan = Gesture.Pan()
+    .enabled(!isAnimating && !loading && !allDone)
+    .minDistance(12)
+    .onUpdate((e) => {
+      btnDragX.value = Math.min(e.translationX, 0);
+      btnDragY.value = e.translationY * 0.3;
+    })
+    .onEnd((e) => {
+      btnDragY.value = withSpring(0);
+      if (e.translationX < -SWIPE_THRESHOLD) {
+        btnDragX.value = withTiming(0, { duration: 90 });
+        runOnJS(handleUnknown)();
+      } else {
+        btnDragX.value = withSpring(0);
+      }
+    });
+  const knownPan = Gesture.Pan()
+    .enabled(!isAnimating && !loading && !allDone)
+    .minDistance(12)
+    .onUpdate((e) => {
+      btnDragX.value = Math.max(e.translationX, 0);
+      btnDragY.value = e.translationY * 0.3;
+    })
+    .onEnd((e) => {
+      btnDragY.value = withSpring(0);
+      if (e.translationX > SWIPE_THRESHOLD) {
+        btnDragX.value = withTiming(0, { duration: 90 });
+        runOnJS(handleKnown)();
+      } else {
+        btnDragX.value = withSpring(0);
+      }
+    });
+
   const handleLoadMore = () => {
     setAllDone(false);
     fetchWords();
@@ -862,6 +902,8 @@ export default function LearnScreen() {
                   onSplitStart={() => setIsAnimating(true)}
                   underReveal={index === 0}
                   epic={(globalIdx + 1) % 10 === 0}
+                  extDragX={btnDragX}
+                  extDragY={btnDragY}
                 />
               );
             })}
@@ -869,39 +911,43 @@ export default function LearnScreen() {
 
           {/* Action Buttons */}
           <View style={styles.actionRow}>
-            <Pressable
-              onPress={handleUnknown}
-              style={({ pressed }) => [
-                styles.actionBtnWrap,
-                pressed && styles.actionBtnPressed,
-              ]}
-            >
-              <LinearGradient
-                colors={['#5C6B8A', '#7E90B5']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.actionBtn}
+            <GestureDetector gesture={unknownPan}>
+              <Pressable
+                onPress={handleUnknown}
+                style={({ pressed }) => [
+                  styles.actionBtnWrap,
+                  pressed && styles.actionBtnPressed,
+                ]}
               >
-                <FontAwesome6 name="cloud-showers-heavy" size={26} color="#FFF" />
-              </LinearGradient>
-            </Pressable>
+                <LinearGradient
+                  colors={['#5C6B8A', '#7E90B5']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.actionBtn, { boxShadow: '0px 10px 20px rgba(92, 107, 138, 0.4)' }]}
+                >
+                  <FontAwesome6 name="cloud-showers-heavy" size={26} color="#FFF" />
+                </LinearGradient>
+              </Pressable>
+            </GestureDetector>
 
-            <Pressable
-              onPress={handleKnown}
-              style={({ pressed }) => [
-                styles.actionBtnWrap,
-                pressed && styles.actionBtnPressed,
-              ]}
-            >
-              <LinearGradient
-                colors={['#F5A300', '#FFC94D']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.actionBtn}
+            <GestureDetector gesture={knownPan}>
+              <Pressable
+                onPress={handleKnown}
+                style={({ pressed }) => [
+                  styles.actionBtnWrap,
+                  pressed && styles.actionBtnPressed,
+                ]}
               >
-                <FontAwesome6 name="bolt" size={30} color="#FFF" />
-              </LinearGradient>
-            </Pressable>
+                <LinearGradient
+                  colors={['#F5A300', '#FFC94D']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.actionBtn, { boxShadow: '0px 10px 20px rgba(245, 163, 0, 0.4)' }]}
+                >
+                  <FontAwesome6 name="bolt" size={30} color="#FFF" />
+                </LinearGradient>
+              </Pressable>
+            </GestureDetector>
           </View>
 
           {/* Hint */}
