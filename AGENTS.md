@@ -266,7 +266,11 @@ import { Screen } from '../../../components/Screen';
 
 **闪电劈卡交互**（`client/screens/learn/index.tsx`）：右滑"认识"触发劈卡动画。每第 10 张卡（`(globalIdx+1) % 10 === 0`）触发 **epic 大雷变体**：`thunder.wav`（1.6s 合成雷声：crack+低频滚动轰鸣）替代 `lightning.wav`、闪电 240 宽加粗带分叉（普通 150 宽 4 path / epic 6 path）、闪光双拍（0.9→0.35→0.75→0）、震屏幅度 ×2、两半飞散更远更慢（普通 430ms/±130，epic 640ms/±210，commit timer 660/920ms）。**渐隐机制：容器整体渐隐（containerOp）替代两半各自渐隐**——两半飞散消失后不会露出空白卡壳（批次末尾卡下面没有 under 卡，此前会露出空卡容器 300ms+）；新卡复用组件时 useEffect[word.id] 必须 reset containerOp=1。epic 分支由 `WordCard` 的 `epic` prop 控制（动画参数/声音/LightningBolt 共用）。音效单例模式：模块级变量 + `preloadXxxSound()`（mount 预加载）+ `playXxx()`（replayAsync），含 flip/thunder/achievement。
 
-**完成页奖杯充能**（allDone 分支）：SVG 圆环（AnimatedCircle + useAnimatedProps 驱动 strokeDashoffset，周长 2π×40≈251.3）1.5s 从 0 充满，充满回调播放 `achievement.wav`（1.35s 上行琶音 C-E-G-C fanfare）+ 奖杯 spring 弹跳 + 光晕圈扩散（glowOp）。firedRef 防重复触发，allDone=false 时重置。
+**完成页奖杯充能**（allDone 分支）：金色奖杯（#FFB800）+ 外圈充能圆环——**RN Animated 驱动**（模块级 `AnimCircle = RNAnimated.createAnimatedComponent(Circle)` + ringAnim.interpolate 映射 strokeDashoffset + useNativeDriver: false），2.6s `charge.wav`（渐升扫频+12Hz 脉动）伴随充满，充满回调播放 `achievement.wav`（1.35s 上行琶音 fanfare）+ 奖杯 spring 弹跳 + 光晕圈扩散（glowOp）。firedRef 防重复触发，allDone=false 时 stopCharge + setValue(0)。**⚠️ reanimated useAnimatedProps 驱动 SVG 属性在 iOS release 会 crash，必须用 RN Animated 组合**（rn-svg 官方稳定支持）。
+
+**真机阴影渲染规则**（两次真机实测不显示的教训）：阴影挂 reanimated Animated.View（cardFace）或 expo-linear-gradient 上真机不渲染；正确做法是**挪到纯静态 View 承载**（cardShadowLayer 底板插在卡面第一个子元素、actionShadow 外壳包住 LinearGradient），大幅加深（opacity 0.45-0.5 / offset 10-14 / radius 14-18 / elevation 12-14）。**不要 boxShadow 与 legacy shadow* 双写**——boxShadow 设置时 legacy 被屏蔽，若真机 boxShadow 有 bug 会全灭，只留 legacy shadow*。另：RNGH Pan 的 onUpdate→sharedValue→useAnimatedStyle 在 web 预览不逐帧（transform 恒为单位矩阵），真机原生 UI 线程正常——web 上只能验证手势触发结果，不能验证跟手中间态。
+
+**按钮拖动**（乌云左划/闪电右划）：GestureDetector(Pan minDistance 12) 包 Animated.View（btnMoveStyle = transform btnDragX/btnDragY，**按钮自身跟手，卡片不联动**——v1 曾把 extDragX 合成进 WordCard 全部样式被用户否决）内包 Pressable（轻点共存）；onEnd 过 ±SWIPE_THRESHOLD(120) → withTiming(0,90) 回正 + runOnJS(handleUnknown/handleKnown)()，否则 withSpring(0)。onUpdate 锁方向：乌云 Math.min(x,0)、闪电 Math.max(x,0)，Y ×0.3。
 
 ## 路由结构
 
