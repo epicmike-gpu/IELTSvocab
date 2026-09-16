@@ -6,6 +6,9 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
+  Modal,
+  ScrollView,
+  Alert,
   Animated as RNAnimated,
   Easing as RNEasing,
 } from 'react-native';
@@ -30,7 +33,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useWordList } from '@/contexts/WordListContext';
+import { useWordList, type WordListInfo } from '@/contexts/WordListContext';
+import { usePurchase, PurchaseCancelledError } from '@/contexts/PurchaseContext';
 import { getDeviceId } from '@/utils/deviceId';
 import { BACKEND_BASE_URL } from '@/utils/backend';
 
@@ -673,8 +677,101 @@ function WordCard({
   );
 }
 
+function ListDrawer({
+  visible,
+  onClose,
+  lists,
+  currentListId,
+  onSelect,
+  purchasingId,
+  onPurchase,
+  onRestore,
+  restoring,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  lists: WordListInfo[];
+  currentListId: string;
+  onSelect: (listId: string) => void;
+  purchasingId: string | null;
+  onPurchase: (listId: string) => void;
+  onRestore: () => void;
+  restoring: boolean;
+}) {
+  const { isMaterialUnlocked, getMaterial } = usePurchase();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.drawerMask}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable style={[styles.drawerPanel, { paddingBottom: insets.bottom + 12 }]}>
+          <View style={styles.drawerHandle} />
+          <View style={styles.drawerHeader}>
+            <Text style={styles.drawerTitle}>选择学习材料</Text>
+            <Pressable onPress={onClose} hitSlop={12}>
+              <FontAwesome6 name="xmark" size={18} color="#B2BEC3" />
+            </Pressable>
+          </View>
+          <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+            {lists.map((list) => {
+              const unlocked = isMaterialUnlocked(list.id);
+              const material = getMaterial(list.id);
+              const selected = list.id === currentListId;
+              const busy = purchasingId === list.id;
+              return (
+                <Pressable
+                  key={list.id}
+                  onPress={() => (unlocked ? onSelect(list.id) : onPurchase(list.id))}
+                  disabled={busy || restoring}
+                  style={({ pressed }) => [
+                    styles.drawerItem,
+                    selected && styles.drawerItemSelected,
+                    pressed && { opacity: 0.65 },
+                  ]}
+                >
+                  <View style={[styles.drawerItemIcon, { backgroundColor: `${list.color}1A` }]}>
+                    <FontAwesome6 name={list.icon as never} size={16} color={list.color} />
+                  </View>
+                  <View style={styles.drawerItemMain}>
+                    <Text style={styles.drawerItemName} numberOfLines={1}>{list.name}</Text>
+                    <Text style={styles.drawerItemProgress}>已学 {list.knownCount} / {list.totalWords}</Text>
+                  </View>
+                  {busy ? (
+                    <ActivityIndicator size="small" color="#6C63FF" />
+                  ) : !unlocked ? (
+                    <View style={styles.lockBadge}>
+                      <FontAwesome6 name="lock" size={11} color="#E89B00" />
+                      <Text style={styles.lockBadgeText}>¥{material?.price ?? 6}</Text>
+                    </View>
+                  ) : selected ? (
+                    <FontAwesome6 name="circle-check" size={22} color="#6C63FF" />
+                  ) : (
+                    <View style={styles.radioCircle} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          <Pressable onPress={onRestore} disabled={restoring} style={styles.restoreBtn}>
+            {restoring ? (
+              <ActivityIndicator size="small" color="#B2BEC3" />
+            ) : (
+              <Text style={styles.restoreText}>恢复购买</Text>
+            )}
+          </Pressable>
+        </Pressable>
+      </View>
+    </Modal>
+  );
+}
+
 export default function LearnScreen() {
-  const { currentListId, currentList } = useWordList();
+  const { currentListId, currentList, lists, setListId, refreshLists } = useWordList();
+  const { purchaseMaterial, restorePurchases } = usePurchase();
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [purchasingId, setPurchasingId] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -917,6 +1014,49 @@ export default function LearnScreen() {
     fetchWords();
   };
 
+  const openDrawer = useCallback(() => {
+    refreshLists();
+    setDrawerVisible(true);
+  }, [refreshLists]);
+
+  const handleDrawerSelect = useCallback((listId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    setListId(listId);
+    setDrawerVisible(false);
+  }, [setListId]);
+
+  const handleDrawerPurchase = useCallback(async (listId: string) => {
+    setPurchasingId(listId);
+    try {
+      await purchaseMaterial(listId);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+      setListId(listId);
+      setDrawerVisible(false);
+    } catch (error) {
+      if (!(error instanceof PurchaseCancelledError)) {
+        Alert.alert('购买失败', '请稍后重试');
+      }
+    } finally {
+      setPurchasingId(null);
+    }
+  }, [purchaseMaterial, setListId]);
+
+  const handleDrawerRestore = useCallback(async () => {
+    setRestoring(true);
+    try {
+      const count = await restorePurchases();
+      if (count > 0) {
+        Alert.alert('恢复成功', `已恢复 ${count} 项已购材料`);
+      } else {
+        Alert.alert('未发现购买记录', '当前 Apple ID 没有可恢复的购买');
+      }
+    } catch {
+      Alert.alert('恢复失败', '请检查网络后重试');
+    } finally {
+      setRestoring(false);
+    }
+  }, [restorePurchases]);
+
   const visibleWords = words.slice(currentIndex, currentIndex + 2).reverse();
 
   if (loading) {
@@ -996,7 +1136,14 @@ export default function LearnScreen() {
         <View style={[styles.container, { paddingTop: insets.top + 4 }]}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">{currentList?.name || '词汇学习'}</Text>
+            <Pressable
+              onPress={openDrawer}
+              hitSlop={8}
+              style={({ pressed }) => [styles.headerTitleWrap, pressed && { opacity: 0.6 }]}
+            >
+              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">{currentList?.name || '词汇学习'}</Text>
+              <FontAwesome6 name="chevron-down" size={13} color="#B2BEC3" />
+            </Pressable>
             <View style={styles.progressBadge}>
               <Text style={styles.progressText}>
                 {currentIndex + 1} / {words.length}
@@ -1080,6 +1227,18 @@ export default function LearnScreen() {
             左滑不认识 · 右滑认识 · 点击卡片翻转
           </Text>
         </View>
+
+        <ListDrawer
+          visible={drawerVisible}
+          onClose={() => setDrawerVisible(false)}
+          lists={lists}
+          currentListId={currentListId}
+          onSelect={handleDrawerSelect}
+          purchasingId={purchasingId}
+          onPurchase={handleDrawerPurchase}
+          onRestore={handleDrawerRestore}
+          restoring={restoring}
+        />
       </Screen>
     </GestureHandlerRootView>
   );
@@ -1140,12 +1299,18 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 4,
   },
+  headerTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 1,
+    maxWidth: '72%',
+  },
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: '#2D3436',
     flexShrink: 1,
-    marginRight: 12,
   },
   progressBadge: {
     backgroundColor: 'rgba(108,99,255,0.10)',
@@ -1414,6 +1579,105 @@ const styles = StyleSheet.create({
     color: '#B2BEC3',
     textAlign: 'center',
     paddingBottom: 12,
+  },
+
+  // Material drawer
+  drawerMask: {
+    flex: 1,
+    backgroundColor: 'rgba(43,35,80,0.45)',
+    justifyContent: 'flex-end',
+  },
+  drawerPanel: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    maxHeight: '72%',
+  },
+  drawerHandle: {
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#E4E4EC',
+    marginBottom: 12,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  drawerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2B2350',
+  },
+  drawerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    marginBottom: 4,
+  },
+  drawerItemSelected: {
+    borderColor: 'rgba(108,99,255,0.35)',
+    backgroundColor: 'rgba(108,99,255,0.06)',
+  },
+  drawerItemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  drawerItemMain: {
+    flex: 1,
+    gap: 2,
+  },
+  drawerItemName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2B2350',
+  },
+  drawerItemProgress: {
+    fontSize: 12,
+    color: '#9A9AB0',
+  },
+  lockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,184,0,0.14)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  lockBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#E89B00',
+  },
+  radioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#D8D8E4',
+  },
+  restoreBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 2,
+  },
+  restoreText: {
+    fontSize: 13,
+    color: '#9A9AB0',
   },
 
   // Done screen
