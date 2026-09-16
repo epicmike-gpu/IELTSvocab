@@ -1153,6 +1153,14 @@ export default function LearnScreen() {
               <Text style={styles.progressText}>
                 {currentIndex + 1} / {words.length}
               </Text>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: words.length ? `${((currentIndex + 1) / words.length) * 100}%` : '0%' },
+                  ]}
+                />
+              </View>
             </View>
           </View>
 
@@ -1325,8 +1333,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(108,99,255,0.10)',
     borderRadius: 9999,
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingTop: 5,
+    paddingBottom: 6,
     flexShrink: 0,
+    alignItems: 'center',
+    gap: 3,
+  },
+  progressTrack: {
+    width: '100%',
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(108,99,255,0.16)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: '#6C63FF',
   },
   progressText: {
     fontSize: 13,
