@@ -85,6 +85,21 @@ async function preloadThunderSound() {
 function playThunder() {
   thunderSound?.replayAsync().catch(() => undefined);
 }
+let rainSound: Audio.Sound | null = null;
+async function preloadRainSound() {
+  if (rainSound) return;
+  try {
+    const { sound } = await Audio.Sound.createAsync(
+      require('../../assets/sounds/rain.wav'),
+    );
+    rainSound = sound;
+  } catch {
+    rainSound = null;
+  }
+}
+function playRain() {
+  rainSound?.replayAsync().catch(() => undefined);
+}
 let achievementSound: Audio.Sound | null = null;
 async function preloadAchievementSound() {
   if (achievementSound) return;
@@ -223,12 +238,28 @@ function LightningBolt({ progress, epic }: { progress: SharedValue<number>; epic
   );
 }
 
+function RainDrop({ t, offset, left, len, width }: { t: SharedValue<number>; offset: number; left: number; len: number; width: number }) {
+  const dropStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: ((t.value * 620 + offset) % 620) - 60 }],
+  }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.rainDrop, dropStyle, { left, height: len, width }]}
+    />
+  );
+}
+
+const RAIN_DROPS = Array.from({ length: 9 }, (_, i) => i);
+
 function WordCard({
   word,
   onSwipeLeft,
   onSwipeRight,
   isTop,
   splitTrigger,
+  leftTrigger,
+  triggerLeft,
   underReveal,
   epic,
   onSplitStart,
@@ -238,17 +269,28 @@ function WordCard({
   onSwipeRight: () => void;
   isTop: boolean;
   splitTrigger: number;
+  leftTrigger: number;
+  triggerLeft: () => void;
   underReveal: boolean;
   epic: boolean;
   onSplitStart: () => void;
 }) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+  // rain-sink shared values（左滑"雨沉"退场）
+  const cloudOp = useSharedValue(0);
+  const cloudScale = useSharedValue(0.5);
+  const cloud2Op = useSharedValue(0);
+  const rainT = useSharedValue(0);
   const [isFlipped, setIsFlipped] = useState(false);
   useEffect(() => {
     setIsFlipped(false);
     spinAnim.value = 0;
     containerOp.value = 1;
+    cloudOp.value = 0;
+    cloudScale.value = 0.5;
+    cloud2Op.value = 0;
+    rainT.value = 0;
   }, [word.id]);
 
   // split-card state
@@ -257,6 +299,12 @@ function WordCard({
   const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (commitTimerRef.current) clearTimeout(commitTimerRef.current); }, []);
   const lastTriggerRef = useRef(splitTrigger);
+  // rain-sink state
+  const [sinking, setSinking] = useState(false);
+  const sinkingRef = useRef(false);
+  const sinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (sinkTimerRef.current) clearTimeout(sinkTimerRef.current); }, []);
+  const lastLeftRef = useRef(leftTrigger);
   const halfLX = useSharedValue(0);
   const halfLY = useSharedValue(0);
   const halfLRot = useSharedValue(0);
@@ -272,8 +320,43 @@ function WordCard({
     if (epic) playThunder(); else playZap();
   }, [epic]);
 
-  const propsRef = useRef({ onSwipeRight });
-  propsRef.current = { onSwipeRight };
+  const propsRef = useRef({ onSwipeRight, onSwipeLeft });
+  propsRef.current = { onSwipeRight, onSwipeLeft };
+
+  const startSink = useCallback(() => {
+    if (sinkingRef.current || splittingRef.current || !isTop) return;
+    sinkingRef.current = true;
+    setSinking(true);
+    playRain();
+    cloudOp.value = withTiming(1, { duration: 140 });
+    cloudScale.value = withSpring(1, { damping: 12 });
+    cloud2Op.value = withDelay(120, withTiming(0.7, { duration: 160 }));
+    rainT.value = withTiming(1.7, { duration: 640, easing: Easing.linear });
+    translateX.value = withDelay(150, withTiming(-SCREEN_WIDTH * 0.52, { duration: 520, easing: Easing.in(Easing.quad) }));
+    translateY.value = withDelay(150, withTiming(150, { duration: 520, easing: Easing.in(Easing.quad) }));
+    containerOp.value = withDelay(300, withTiming(0, { duration: 400 }));
+    sinkTimerRef.current = setTimeout(() => {
+      sinkingRef.current = false;
+      setSinking(false);
+      propsRef.current.onSwipeLeft();
+    }, 700);
+  }, [isTop, translateX, translateY, containerOp, cloudOp, cloudScale, cloud2Op, rainT]);
+
+  useEffect(() => {
+    if (leftTrigger !== lastLeftRef.current) {
+      lastLeftRef.current = leftTrigger;
+      if (leftTrigger > 0 && isTop) startSink();
+    }
+  }, [leftTrigger, isTop, startSink]);
+
+  const cloudMainStyle = useAnimatedStyle(() => ({
+    opacity: cloudOp.value,
+    transform: [{ scale: cloudScale.value }],
+  }));
+  const cloudSecondStyle = useAnimatedStyle(() => ({
+    opacity: cloud2Op.value,
+    transform: [{ scale: cloudScale.value * 0.62 }],
+  }));
 
   const startSplit = useCallback(() => {
     if (splittingRef.current || !isTop) return;
@@ -347,7 +430,7 @@ function WordCard({
   }, [splitTrigger, isTop, startSplit]);
 
   const panGesture = Gesture.Pan()
-    .enabled(isTop && !splitting)
+    .enabled(isTop && !splitting && !sinking)
     .onUpdate((e) => {
       translateX.value = e.translationX;
       translateY.value = e.translationY * 0.3;
@@ -356,10 +439,7 @@ function WordCard({
       if (e.translationX > SWIPE_THRESHOLD) {
         runOnJS(startSplit)();
       } else if (e.translationX < -SWIPE_THRESHOLD) {
-        translateX.value = withTiming(-SCREEN_WIDTH, { duration: 280 }, (finished) => {
-          if (finished) runOnJS(onSwipeLeft)();
-        });
-        translateY.value = withTiming(40, { duration: 280 });
+        runOnJS(triggerLeft)();
       } else {
         translateX.value = withSpring(0);
         translateY.value = withSpring(0);
@@ -567,6 +647,26 @@ function WordCard({
             </Animated.View>
           </>
         )}
+        {sinking && (
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 30 }]}>
+            {RAIN_DROPS.map((i) => (
+              <RainDrop
+                key={i}
+                t={rainT}
+                offset={i * 68.9}
+                left={(i / RAIN_DROPS.length) * CARD_WIDTH + (i % 3) * 8}
+                len={14 + (i % 4) * 5}
+                width={2 + (i % 2)}
+              />
+            ))}
+            <Animated.View style={[styles.rainCloud, cloudMainStyle]}>
+              <FontAwesome6 name="cloud-showers-heavy" size={38} color="#5C6B8A" />
+            </Animated.View>
+            <Animated.View style={[styles.rainCloud, styles.rainCloudSmall, cloudSecondStyle]}>
+              <FontAwesome6 name="cloud-showers-heavy" size={24} color="#7E90B5" />
+            </Animated.View>
+          </View>
+        )}
       </Animated.View>
     </GestureDetector>
   );
@@ -654,6 +754,7 @@ export default function LearnScreen() {
   useEffect(() => {
     preloadZapSound();
     preloadThunderSound();
+    preloadRainSound();
     preloadFlipSound();
     preloadAchievementSound();
     preloadChargeSound();
@@ -724,6 +825,7 @@ export default function LearnScreen() {
   }, [currentIndex, words.length]);
 
   const [splitTrigger, setSplitTrigger] = useState(0);
+  const [leftTrigger, setLeftTrigger] = useState(0);
 
   const triggerSplit = useCallback(() => {
     if (isAnimating) return;
@@ -752,48 +854,60 @@ export default function LearnScreen() {
     const word = words[currentIndex];
     if (!word) return;
     setIsAnimating(true);
-    setSessionCount((c) => c + 1);
-    recordWord(word.id, currentListId, 'unknown');
-    handleNext();
-    setTimeout(() => setIsAnimating(false), 300);
-  }, [words, currentIndex, handleNext, currentListId, isAnimating]);
+    setLeftTrigger((c) => c + 1);
+  }, [words, currentIndex, isAnimating]);
 
-  // 按钮自身跟手拖动：从乌云按钮向左拖=不认识，从闪电按钮向右拖=认识（卡片不联动）
-  const btnDragX = useSharedValue(0);
-  const btnDragY = useSharedValue(0);
-  const btnMoveStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: btnDragX.value }, { translateY: btnDragY.value }],
+  const commitUnknown = useCallback(() => {
+    const word = words[currentIndex];
+    if (word) {
+      setSessionCount((c) => c + 1);
+      recordWord(word.id, currentListId, 'unknown');
+    }
+    handleNext();
+    setIsAnimating(false);
+  }, [words, currentIndex, handleNext, currentListId]);
+
+  // 按钮自身跟手拖动：乌云向左/闪电向右各一套位移（共享会导致另一颗按钮跟着撞上来）
+  const unknownDragX = useSharedValue(0);
+  const unknownDragY = useSharedValue(0);
+  const knownDragX = useSharedValue(0);
+  const knownDragY = useSharedValue(0);
+  const unknownMoveStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: unknownDragX.value }, { translateY: unknownDragY.value }],
+  }));
+  const knownMoveStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: knownDragX.value }, { translateY: knownDragY.value }],
   }));
   const unknownPan = Gesture.Pan()
     .enabled(!isAnimating && !loading && !allDone)
     .minDistance(12)
     .onUpdate((e) => {
-      btnDragX.value = Math.min(e.translationX, 0);
-      btnDragY.value = e.translationY * 0.3;
+      unknownDragX.value = Math.min(e.translationX, 0);
+      unknownDragY.value = e.translationY * 0.3;
     })
     .onEnd((e) => {
-      btnDragY.value = withSpring(0);
+      unknownDragY.value = withSpring(0);
       if (e.translationX < -SWIPE_THRESHOLD) {
-        btnDragX.value = withTiming(0, { duration: 90 });
+        unknownDragX.value = withTiming(0, { duration: 90 });
         runOnJS(handleUnknown)();
       } else {
-        btnDragX.value = withSpring(0);
+        unknownDragX.value = withSpring(0);
       }
     });
   const knownPan = Gesture.Pan()
     .enabled(!isAnimating && !loading && !allDone)
     .minDistance(12)
     .onUpdate((e) => {
-      btnDragX.value = Math.max(e.translationX, 0);
-      btnDragY.value = e.translationY * 0.3;
+      knownDragX.value = Math.max(e.translationX, 0);
+      knownDragY.value = e.translationY * 0.3;
     })
     .onEnd((e) => {
-      btnDragY.value = withSpring(0);
+      knownDragY.value = withSpring(0);
       if (e.translationX > SWIPE_THRESHOLD) {
-        btnDragX.value = withTiming(0, { duration: 90 });
+        knownDragX.value = withTiming(0, { duration: 90 });
         runOnJS(handleKnown)();
       } else {
-        btnDragX.value = withSpring(0);
+        knownDragX.value = withSpring(0);
       }
     });
 
@@ -897,10 +1011,12 @@ export default function LearnScreen() {
                 <WordCard
                   key={`${word.id}-${currentIndex + index}`}
                   word={word}
-                  onSwipeLeft={handleUnknown}
+                  onSwipeLeft={commitUnknown}
                   onSwipeRight={commitKnown}
                   isTop={index === visibleWords.length - 1}
                   splitTrigger={splitTrigger}
+                  leftTrigger={leftTrigger}
+                  triggerLeft={handleUnknown}
                   onSplitStart={() => setIsAnimating(true)}
                   underReveal={index === 0}
                   epic={(globalIdx + 1) % 10 === 0}
@@ -912,7 +1028,7 @@ export default function LearnScreen() {
           {/* Action Buttons */}
           <View style={styles.actionRow}>
             <GestureDetector gesture={unknownPan}>
-              <Animated.View style={btnMoveStyle}>
+              <Animated.View style={unknownMoveStyle}>
                 <Pressable
                   onPress={handleUnknown}
                   style={({ pressed }) => [
@@ -935,7 +1051,7 @@ export default function LearnScreen() {
             </GestureDetector>
 
             <GestureDetector gesture={knownPan}>
-              <Animated.View style={btnMoveStyle}>
+              <Animated.View style={knownMoveStyle}>
                 <Pressable
                   onPress={handleKnown}
                   style={({ pressed }) => [
@@ -1082,6 +1198,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 16,
     elevation: 8,
+  },
+
+  // Rain-sink overlay（左滑"雨沉"）
+  rainCloud: {
+    position: 'absolute',
+    top: -8,
+    left: CARD_WIDTH / 2 - 36,
+    width: 72,
+    alignItems: 'center',
+  },
+  rainCloudSmall: {
+    top: 34,
+    left: CARD_WIDTH / 2 + 26,
+  },
+  rainDrop: {
+    position: 'absolute',
+    top: 0,
+    borderRadius: 2,
+    backgroundColor: 'rgba(92,107,138,0.5)',
   },
 
   // Front face
