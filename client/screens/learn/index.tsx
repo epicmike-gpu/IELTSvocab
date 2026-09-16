@@ -767,7 +767,7 @@ function ListDrawer({
 }
 
 export default function LearnScreen() {
-  const { currentListId, currentList, lists, setListId, refreshLists } = useWordList();
+  const { currentListId, lists, setListId, refreshLists } = useWordList();
   const { purchaseMaterial, restorePurchases } = usePurchase();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
@@ -1141,7 +1141,7 @@ export default function LearnScreen() {
               hitSlop={8}
               style={({ pressed }) => [styles.headerTitleWrap, pressed && { opacity: 0.6 }]}
             >
-              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">{currentList?.name || '词汇学习'}</Text>
+              <FontAwesome6 name="book-open" size={22} color="#6C63FF" />
               <FontAwesome6 name="chevron-down" size={13} color="#B2BEC3" />
             </Pressable>
             <View style={styles.progressBadge}>
@@ -1303,14 +1303,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flexShrink: 1,
-    maxWidth: '72%',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#2D3436',
-    flexShrink: 1,
   },
   progressBadge: {
     backgroundColor: 'rgba(108,99,255,0.10)',
