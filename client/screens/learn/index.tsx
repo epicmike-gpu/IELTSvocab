@@ -1141,7 +1141,12 @@ export default function LearnScreen() {
               hitSlop={8}
               style={({ pressed }) => [styles.headerTitleWrap, pressed && { opacity: 0.6 }]}
             >
-              <FontAwesome6 name="book-open" size={22} color="#6C63FF" />
+              <View style={styles.bookBoltWrap}>
+                <FontAwesome6 name="book" size={23} color="#6C63FF" />
+                <View style={styles.bookBoltInner} pointerEvents="none">
+                  <FontAwesome6 name="bolt-lightning" size={11} color="#FFFFFF" />
+                </View>
+              </View>
               <FontAwesome6 name="chevron-down" size={13} color="#B2BEC3" />
             </Pressable>
             <View style={styles.progressBadge}>
@@ -1303,6 +1308,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  bookBoltWrap: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bookBoltInner: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 1,
   },
   progressBadge: {
     backgroundColor: 'rgba(108,99,255,0.10)',
