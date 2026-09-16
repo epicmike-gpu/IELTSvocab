@@ -270,7 +270,9 @@ import { Screen } from '../../../components/Screen';
 
 **真机阴影渲染规则**（两次真机实测不显示的教训）：阴影挂 reanimated Animated.View（cardFace）或 expo-linear-gradient 上真机不渲染；正确做法是**挪到纯静态 View 承载**（cardShadowLayer 底板插在卡面第一个子元素、actionShadow 外壳包住 LinearGradient），大幅加深（opacity 0.45-0.5 / offset 10-14 / radius 14-18 / elevation 12-14）。**不要 boxShadow 与 legacy shadow* 双写**——boxShadow 设置时 legacy 被屏蔽，若真机 boxShadow 有 bug 会全灭，只留 legacy shadow*。另：RNGH Pan 的 onUpdate→sharedValue→useAnimatedStyle 在 web 预览不逐帧（transform 恒为单位矩阵），真机原生 UI 线程正常——web 上只能验证手势触发结果，不能验证跟手中间态。
 
-**按钮拖动**（乌云左划/闪电右划）：GestureDetector(Pan minDistance 12) 包 Animated.View（btnMoveStyle = transform btnDragX/btnDragY，**按钮自身跟手，卡片不联动**——v1 曾把 extDragX 合成进 WordCard 全部样式被用户否决）内包 Pressable（轻点共存）；onEnd 过 ±SWIPE_THRESHOLD(120) → withTiming(0,90) 回正 + runOnJS(handleUnknown/handleKnown)()，否则 withSpring(0)。onUpdate 锁方向：乌云 Math.min(x,0)、闪电 Math.max(x,0)，Y ×0.3。
+**按钮拖动**（乌云左划/闪电右划）：GestureDetector(Pan minDistance 12) 包 Animated.View（按钮自身跟手，卡片不联动）内包 Pressable（轻点共存）；onEnd 过 ±SWIPE_THRESHOLD(120) → withTiming(0,90) 回正 + runOnJS 触发，否则 withSpring(0)。onUpdate 锁方向：乌云 Math.min(x,0)、闪电 Math.max(x,0)，Y ×0.3。**⚠️ 两颗按钮的拖动位移必须各用一套 sharedValue + useAnimatedStyle**（unknownDragX/knownDragX）——共用一套会让另一颗按钮跟着位移撞上来。
+
+**左滑"雨沉"动画**（与右滑劈卡对称）：handleUnknown 只做互斥+setLeftTrigger（不换卡），WordCard 的 startSink 播放 rain.wav（0.9s 合成雨声）+ 双乌云淡入（FontAwesome6 cloud-showers-heavy #5C6B8A/#7E90B5）+ 9 条雨丝循环下落（RainDrop 组件共享 rainT sharedValue、取模公式 `((t*620+offset)%620)-60` 实现各 offset 错相滚动）+ 卡片延迟 150ms 向左下沉（translateX -52%屏宽、translateY +150、520ms Easing.in quad）+ containerOp 300ms 后渐隐，700ms commit 调 onSwipeLeft（=commitUnknown：record+handleNext+解除 animating）。**三条左滑路径统一走此动画**：卡片手势 panGesture onEnd（runOnJS(triggerLeft)）、乌云轻点、乌云拖动过阈值——原卡片手势自己飞出的路径已删。sessionCount/recordWord 在 commit 阶段执行（与 commitKnown 对称）。
 
 ## 路由结构
 
