@@ -624,13 +624,11 @@ function WordCard({
           <Animated.View style={[styles.halfContainer, splitContainerStyle]}>
             <Animated.View style={[styles.halfLeft, leftHalfStyle]}>
               <View style={styles.halfInner} pointerEvents="none">
-                <View style={styles.cardShadowLayer} />
                 <Animated.View style={styles.cardFace}>{frontFace}</Animated.View>
               </View>
             </Animated.View>
             <Animated.View style={[styles.halfRight, rightHalfStyle]}>
               <View style={[styles.halfInner, styles.halfInnerRight]} pointerEvents="none">
-                <View style={styles.cardShadowLayer} />
                 <Animated.View style={styles.cardFace}>{frontFace}</Animated.View>
               </View>
             </Animated.View>
@@ -639,8 +637,11 @@ function WordCard({
           </Animated.View>
         ) : (
           <>
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.cardShadowLayer, cardSpinStyle, { zIndex: 1 }]}
+            />
             <Animated.View style={[styles.cardFace, cardSpinStyle, { zIndex: 2 }]}>
-              <View style={styles.cardShadowLayer} pointerEvents="none" />
               <Pressable onPress={handleFlip} disabled={!isTop} style={StyleSheet.absoluteFill}>
                 {isFlipped ? backFace : frontFace}
               </Pressable>
@@ -1179,13 +1180,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
   },
-  // 阴影由静态底板承载（挂 reanimated Animated.View 上真机不渲染；boxShadow 会屏蔽 legacy shadow，故只留 legacy）
+  // 阴影承载层：必须在 card 容器层（cardFace/half* 都有 overflow hidden，放里面会被裁到只剩四角漏阴影）
   cardShadowLayer: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 28,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: 'rgba(108,99,255,0.16)',
+    backfaceVisibility: 'hidden',
     shadowColor: '#2B2350',
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.5,
