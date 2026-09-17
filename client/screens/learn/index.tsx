@@ -768,9 +768,10 @@ function ListDrawer({
 
 export default function LearnScreen() {
   const { currentListId, lists, setListId, refreshLists } = useWordList();
-  const { purchaseMaterial, restorePurchases } = usePurchase();
+  const { purchaseMaterial, restorePurchases, getMaterial } = usePurchase();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
+  const [buyModal, setBuyModal] = useState<{ visible: boolean; materialId: string | null }>({ visible: false, materialId: null });
   const [restoring, setRestoring] = useState(false);
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1025,12 +1026,19 @@ export default function LearnScreen() {
     setDrawerVisible(false);
   }, [setListId]);
 
-  const handleDrawerPurchase = useCallback(async (listId: string) => {
+  const handleDrawerPurchase = useCallback((listId: string) => {
+    setBuyModal({ visible: true, materialId: listId });
+  }, []);
+
+  const confirmDrawerBuy = useCallback(async () => {
+    const listId = buyModal.materialId;
+    if (!listId) return;
     setPurchasingId(listId);
     try {
       await purchaseMaterial(listId);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       setListId(listId);
+      setBuyModal({ visible: false, materialId: null });
       setDrawerVisible(false);
     } catch (error) {
       if (!(error instanceof PurchaseCancelledError)) {
@@ -1039,7 +1047,7 @@ export default function LearnScreen() {
     } finally {
       setPurchasingId(null);
     }
-  }, [purchaseMaterial, setListId]);
+  }, [buyModal.materialId, purchaseMaterial, setListId]);
 
   const handleDrawerRestore = useCallback(async () => {
     setRestoring(true);
@@ -1249,9 +1257,46 @@ export default function LearnScreen() {
           onSelect={handleDrawerSelect}
           purchasingId={purchasingId}
           onPurchase={handleDrawerPurchase}
+
           onRestore={handleDrawerRestore}
           restoring={restoring}
         />
+        <Modal visible={buyModal.visible && buyModal.materialId !== null} transparent animationType="fade" onRequestClose={() => setBuyModal({ visible: false, materialId: null })}>
+          <View style={styles.buyModalMask}>
+            <View style={styles.buyModalCard}>
+              {buyModal.materialId && (() => {
+                const material = getMaterial(buyModal.materialId);
+                if (!material) return null;
+                return (
+                  <>
+                    <View style={styles.buyModalHead}>
+                      <FontAwesome6 name="crown" size={36} color="#FFB347" />
+                      <Text style={styles.buyModalTitle} numberOfLines={2}>{material.name}</Text>
+                      <Text style={styles.buyModalSub}>解锁完整词表</Text>
+                    </View>
+                    <View style={styles.buyModalPriceBox}>
+                      <Text style={styles.buyModalPriceLabel}>价格</Text>
+                      <Text style={styles.buyModalPrice}>¥{material.price}</Text>
+                    </View>
+                    <Text style={styles.buyModalNote}>已购买过的材料会自动恢复，不会重复扣费</Text>
+                    <View style={styles.buyModalActions}>
+                      <Pressable style={styles.buyModalCancel} onPress={() => setBuyModal({ visible: false, materialId: null })}>
+                        <Text style={styles.buyModalCancelText}>取消</Text>
+                      </Pressable>
+                      <Pressable style={styles.buyModalConfirm} onPress={confirmDrawerBuy} disabled={purchasingId !== null}>
+                        {purchasingId ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.buyModalConfirmText}>确认购买</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  </>
+                );
+              })()}
+            </View>
+          </View>
+        </Modal>
       </Screen>
     </GestureHandlerRootView>
   );
@@ -1706,6 +1751,89 @@ const styles = StyleSheet.create({
   restoreText: {
     fontSize: 13,
     color: '#9A9AB0',
+  },
+  buyModalMask: {
+    flex: 1,
+    backgroundColor: 'rgba(43,35,80,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  buyModalCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    alignItems: 'center',
+  },
+  buyModalHead: {
+    alignItems: 'center',
+    marginBottom: 14,
+    gap: 8,
+  },
+  buyModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#2B2350',
+    textAlign: 'center',
+  },
+  buyModalSub: {
+    fontSize: 13,
+    color: '#9A9AB0',
+  },
+  buyModalPriceBox: {
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: 'rgba(108,99,255,0.06)',
+    borderRadius: 16,
+    paddingVertical: 12,
+    marginBottom: 10,
+    gap: 2,
+  },
+  buyModalPriceLabel: {
+    fontSize: 12,
+    color: '#9A9AB0',
+  },
+  buyModalPrice: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#2B2350',
+  },
+  buyModalNote: {
+    fontSize: 12,
+    color: '#B2BEC3',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  buyModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  buyModalCancel: {
+    flex: 1,
+    backgroundColor: '#F0F0F5',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  buyModalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B6B80',
+  },
+  buyModalConfirm: {
+    flex: 1,
+    backgroundColor: '#6C63FF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  buyModalConfirmText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 
   // Done screen
