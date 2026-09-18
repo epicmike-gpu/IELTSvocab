@@ -463,11 +463,6 @@ function WordCard({
     transform: [{ scale: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0.8, 1], 'clamp') }],
   }));
 
-  const leftOverlayStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0], 'clamp'),
-    transform: [{ scale: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0.8], 'clamp') }],
-  }));
-
   const backCardStyle = useAnimatedStyle(() => ({
     transform: [
       { scale: interpolate(Math.abs(translateX.value), [0, SWIPE_THRESHOLD], [1, 0.95], 'clamp') },
@@ -575,13 +570,6 @@ function WordCard({
           <FontAwesome6 name="check" size={32} color="#00B894" />
         </View>
         <Text style={[styles.overlayText, { color: '#00B894' }]}>认识</Text>
-      </Animated.View>
-
-      <Animated.View style={[styles.swipeOverlay, leftOverlayStyle]}>
-        <View style={styles.overlayCircle}>
-          <FontAwesome6 name="xmark" size={32} color="#FF6B6B" />
-        </View>
-        <Text style={[styles.overlayText, { color: '#FF6B6B' }]}>不认识</Text>
       </Animated.View>
     </Pressable>
   );
@@ -1033,13 +1021,14 @@ export default function LearnScreen() {
   const confirmDrawerBuy = useCallback(async () => {
     const listId = buyModal.materialId;
     if (!listId) return;
+    setBuyModal({ visible: false, materialId: null });
+    setDrawerVisible(false);
     setPurchasingId(listId);
     try {
+      await new Promise((resolve) => setTimeout(resolve, 450));
       await purchaseMaterial(listId);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       setListId(listId);
-      setBuyModal({ visible: false, materialId: null });
-      setDrawerVisible(false);
     } catch (error) {
       if (!(error instanceof PurchaseCancelledError)) {
         Alert.alert('购买失败', '请稍后重试');
@@ -1245,7 +1234,7 @@ export default function LearnScreen() {
 
           {/* Hint */}
           <Text style={styles.hintText}>
-            左滑不认识 · 右滑认识 · 点击卡片翻转
+            左滑 · 右滑认识 · 点击卡片翻转
           </Text>
         </View>
 
