@@ -675,6 +675,7 @@ function ListDrawer({
   onPurchase,
   onRestore,
   restoring,
+  onDrawerDismiss,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -685,12 +686,13 @@ function ListDrawer({
   onPurchase: (listId: string) => void;
   onRestore: () => void;
   restoring: boolean;
+  onDrawerDismiss?: () => void;
 }) {
   const { isMaterialUnlocked, getMaterial } = usePurchase();
   const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onDismiss={onDrawerDismiss} onRequestClose={onClose}>
       <View style={styles.drawerMask}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <Pressable style={[styles.drawerPanel, { paddingBottom: insets.bottom + 12 }]}>
@@ -760,6 +762,7 @@ export default function LearnScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
   const [buyModal, setBuyModal] = useState<{ visible: boolean; materialId: string | null }>({ visible: false, materialId: null });
+  const [pendingPayId, setPendingPayId] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1018,14 +1021,13 @@ export default function LearnScreen() {
     setBuyModal({ visible: true, materialId: listId });
   }, []);
 
-  const confirmDrawerBuy = useCallback(async () => {
-    const listId = buyModal.materialId;
-    if (!listId) return;
-    setBuyModal({ visible: false, materialId: null });
-    setDrawerVisible(false);
+  const payFiredRef = useRef(false);
+
+  const firePendingPay = useCallback(async (listId: string) => {
+    if (payFiredRef.current) return;
+    payFiredRef.current = true;
     setPurchasingId(listId);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 450));
       await purchaseMaterial(listId);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       setListId(listId);
@@ -1036,7 +1038,27 @@ export default function LearnScreen() {
     } finally {
       setPurchasingId(null);
     }
-  }, [buyModal.materialId, purchaseMaterial, setListId]);
+  }, [purchaseMaterial, setListId]);
+
+  const confirmDrawerBuy = useCallback(() => {
+    const listId = buyModal.materialId;
+    if (!listId) return;
+    payFiredRef.current = false;
+    setBuyModal({ visible: false, materialId: null });
+    setPendingPayId(listId);
+    setTimeout(() => {
+      if (!payFiredRef.current) {
+        setDrawerVisible(false);
+        setTimeout(() => firePendingPay(listId), 350);
+      }
+    }, 1400);
+  }, [buyModal.materialId, firePendingPay]);
+
+  const onConfirmCardDismiss = useCallback(() => {
+    if (pendingPayId) {
+      setDrawerVisible(false);
+    }
+  }, [pendingPayId]);
 
   const handleDrawerRestore = useCallback(async () => {
     setRestoring(true);
@@ -1249,8 +1271,13 @@ export default function LearnScreen() {
 
           onRestore={handleDrawerRestore}
           restoring={restoring}
+          onDrawerDismiss={() => {
+            if (pendingPayId) {
+              firePendingPay(pendingPayId);
+            }
+          }}
         />
-        <Modal visible={buyModal.visible && buyModal.materialId !== null} transparent animationType="fade" onRequestClose={() => setBuyModal({ visible: false, materialId: null })}>
+        <Modal visible={buyModal.visible && buyModal.materialId !== null} transparent animationType="fade" onDismiss={onConfirmCardDismiss} onRequestClose={() => setBuyModal({ visible: false, materialId: null })}>
           <View style={styles.buyModalMask}>
             <View style={styles.buyModalCard}>
               {buyModal.materialId && (() => {

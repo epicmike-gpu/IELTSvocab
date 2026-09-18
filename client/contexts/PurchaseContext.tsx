@@ -138,10 +138,17 @@ export function PurchaseProvider({ children }: { children: ReactNode }) {
     const sku = material.productId ?? material.id;
     await new Promise<void>((resolve, reject) => {
       pendingRef.current.set(materialId, { resolve, reject });
+      const timer = setTimeout(() => {
+        if (pendingRef.current.has(materialId)) {
+          pendingRef.current.delete(materialId);
+          reject(new PurchaseCancelledError());
+        }
+      }, 20000);
       iap.requestPurchase({
         request: { apple: { sku } },
         type: 'in-app',
       }).catch((e: unknown) => {
+        clearTimeout(timer);
         pendingRef.current.delete(materialId);
         reject(e instanceof Error ? e : new Error(String(e)));
       });
